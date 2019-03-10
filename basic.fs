@@ -1,17 +1,23 @@
 
-: ESC ( -- )
+27 constant bc-escape
+48 constant bc-digit-lo
+57 constant bc-digit-hi
+0 constant bc-false
+-1 constant bc-true
+
+: b-ESC ( -- )
     \ output escape character
-    27 emit ;
+    bc-escape emit ;
 
-: CSI ( -- )
+: b-CSI ( -- )
     \ output control sequence introducer ( ESC [ )
-    ESC ." [" ;
+    b-ESC ." [" ;
 
-: SEMIC ( -- ) 
+: b-SEMIC ( -- ) 
     \ output semicolon
     ." ;" ;
 
-: outnum ( n -- )
+: b-outnum ( n -- )
     \ output decimal number (without surrounding blanks)
     dup 0= if 
         \ if the value is zero, only output that
@@ -31,16 +37,36 @@
             drop
         endif
         \ output least significant digit of decimal number
-        10 mod 48 + emit
+        10 mod bc-digit-lo + emit
     endif ;
 
-: locate ( x y -- )
+: b-locate ( x y -- )
     \ set cursor to specified screen position
-    CSI outnum SEMIC outnum ." H" ;
+    b-CSI b-outnum b-SEMIC b-outnum ." H" ;
 
-: cls ( -- )
+: b-cls ( -- )
     \ clear screen and set cursor to top left screen position
-    CSI ." 2J" 
-    1 1 locate ;
+    b-CSI ." 2J" 
+    1 1 b-locate ;
 
+: b-kc-digit? ( k -- t )
+    \ analyzes a key code to see if it's a digit
+    dup bc-digit-lo < if
+        drop
+        bc-false
+    else
+        bc-digit-hi > if
+        bc-false
+        else
+        bc-true
+        endif
+    endif
+
+: b-line-editor ( -- )
+    \ BASIC line editor
+    ;
+
+: b-screen-editor ( -- )
+    \ BASIC screen editor
+    ;
 
