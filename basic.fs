@@ -4,6 +4,11 @@
 57 constant bc-digit-hi
 0 constant bc-false
 -1 constant bc-true
+256 constant bc-max-line-size
+128 constant bc-max-lines
+
+create b-linebuf bc-max-line-size chars allot
+create b-screenbuf bc-max-lines bc-max-line-size * chars allot
 
 : b-ESC ( -- )
     \ output escape character
@@ -60,7 +65,21 @@
         else
         bc-true
         endif
-    endif
+    endif ;
+
+: b-kc-escape? ( k -- t )
+    \ check if a key code is the escape key
+    bc-escape = if
+        bc-true
+    else
+        bc-false
+    endif ;
+
+: b-handle-escape-sequence ( k -- )
+    \ if the keycode is the escape key, check for the control sequence introducer.
+    \ if it's the CSI, read keys until a non-digit non-semicolon is encountered, 
+    \ pushing numbers onto the stack.
+    ;
 
 : b-line-editor ( -- )
     \ BASIC line editor
