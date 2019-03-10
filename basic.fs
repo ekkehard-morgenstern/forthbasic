@@ -11,10 +11,6 @@
     \ output semicolon
     ." ;" ;
 
-: outdig ( n -- )
-    \ output least significant digit of decimal number
-    10 mod 48 + emit ;
-
 : outnum ( n -- )
     \ output decimal number (without surrounding blanks)
     dup 0= if 
@@ -34,7 +30,8 @@
         else
             drop
         endif
-        outdig
+        \ output least significant digit of decimal number
+        10 mod 48 + emit
     endif ;
 
 : locate ( x y -- )
