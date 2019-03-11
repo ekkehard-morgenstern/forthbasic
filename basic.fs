@@ -46,13 +46,13 @@ create b-screenbuf bc-max-lines bc-max-line-size * chars allot
     endif ;
 
 : b-locate ( x y -- )
-    \ set cursor to specified screen position
-    b-CSI b-outnum b-SEMIC b-outnum ." H" ;
+    \ set cursor to specified screen position (starting from 1,1)
+    \ at-xy starts from (0,0)
+    1 - swap 1 - swap at-xy ;
 
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
-    b-CSI ." 2J" 
-    1 1 b-locate ;
+    page ;
 
 : b-kc-digit? ( k -- t )
     \ analyzes a key code to see if it's a digit
