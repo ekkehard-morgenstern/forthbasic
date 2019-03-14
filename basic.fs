@@ -14,10 +14,15 @@ variable b-window-height
 variable b-window-size
 
 : b-update-window-size ( -- )
+    \ get new text window dimensions
     form b-window-width ! b-window-height ! 
     b-window-width @ b-window-height @ * b-window-size ! ;
 
 b-update-window-size
+
+: b-update-window-size? ( -- t )
+    \ check if window dimensions have changed
+    form b-window-width <> b-window-height <> or ;
 
 : b-NEWLINE
     \ output newline character(s)
@@ -58,13 +63,42 @@ b-update-window-size
         10 mod bc-digit-lo + emit
     endif ;
 
+: b-auto-update-window ( -- )
+    \ check if window update is necessary, and do so if so
+    b-update-window-size? if b-update-window-size then ;
+
+: b-cursor-y-invalid? ( n -- t )
+    \ check if cursor Y position is invalid
+    dup 0< over b-window-height >= or nip ;
+
+: b-cursor-x-invalid? ( n -- t )
+    \ check if cursor X position is invalid
+    dup 0< over b-window-width >= or nip ;
+
+: b-dec ( n -- n-1 )
+    1 - ;
+
+variable b-cursor-x
+variable b-cursor-y
+
+: b-set-cursor ( x y -- )
+    b-cursor-y ! b-cursor-x ! ;
+
 : b-locate ( x y -- )
-    \ set cursor to specified screen position (starting from 0,0)
-    at-xy ;
+    \ set cursor to specified screen position (starting from 1,1)
+    b-auto-update-window
+    ( x y -- x-1 y-1 )
+    b-dec swap b-dec swap
+    ( x y -- x y t )
+    dup b-cursor-y-invalid?
+    ( x y t -- x y t t )
+    2 pick b-cursor-x-invalid?
+    ( x y t t -- ) 
+    or not if 2dup b-set-cursor at-xy then ;
 
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
-    page ;
+    page 1 1 locate ;
 
 b-cls
 
