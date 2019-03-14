@@ -101,7 +101,7 @@ variable b-cursor-y
 
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
-    page 1 1 locate ;
+    page 1 1 b-locate ;
 
 b-cls
 
