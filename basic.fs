@@ -84,6 +84,9 @@ variable b-cursor-y
 : b-set-cursor ( x y -- )
     b-cursor-y ! b-cursor-x ! ;
 
+: b-not ( n -- ~n )
+    invert ;
+
 : b-locate ( x y -- )
     \ set cursor to specified screen position (starting from 1,1)
     b-auto-update-window
@@ -94,7 +97,7 @@ variable b-cursor-y
     ( x y t -- x y t t )
     2 pick b-cursor-x-invalid?
     ( x y t t -- ) 
-    or not if 2dup b-set-cursor at-xy then ;
+    or b-not if 2dup b-set-cursor at-xy then ;
 
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
