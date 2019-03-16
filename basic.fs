@@ -111,12 +111,6 @@ b-NEWLINE
 b-NEWLINE
 1 5 b-locate
 
-: b-handle-cursor-up ( -- )
-    ;
-
-: b-handle-cursor-down ( -- )
-    ;
-
 : b-handle-cursor-left ( -- )
     ;
 
@@ -184,19 +178,64 @@ b-NEWLINE
     \ not really doing anything here, console scrolls automatically
     ;
 
-: b-anticipate-return-event ( x y -- x y )
-    \ recompute anticipated cursor position as if return had been pressed
-    \ reset x to 1
-    swap drop 1 swap
+: b-scroll-down ( -- )
+    \ on Linux, need to output scroll down sequence
+    b-CSI ." T" ;
+
+: b-anticipate-cursor-up-event ( x y -- x y )
+    \ recompute anticipated cursor position as if cursor up had been pressed
+    \ sub 1 from y 
+    1- 
+    \ check if window height has been exceeded
+    dup 0<= if
+        \ yes: add 1 to y
+        1+
+        \ scroll down
+        b-scroll-down
+    endif ;
+
+: b-anticipate-cursor-up ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ recompute anticipated cursor position as if cursor up had been pressed
+    b-anticipate-cursor-up-event ;
+
+: b-handle-cursor-up ( -- )
+    \ get anticipated cursor position
+    b-anticipate-cursor-up ( -- x y )
+    \ locate to anticipated position
+    b-locate ;
+
+: b-anticipate-cursor-down-event ( x y -- x y )
+    \ recompute anticipated cursor position as if cursor down had been pressed
     \ add 1 to y 
     1+ 
     \ check if window height has been exceeded
-    dup b-window-height > if
+    dup b-window-height @ > if
         \ yes: sub 1 from y
         1-
         \ scroll up
         b-scroll-up
     endif ;
+
+: b-anticipate-cursor-down ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ recompute anticipated cursor position as if cursor down had been pressed
+    b-anticipate-cursor-down-event ;
+
+: b-handle-cursor-down ( -- )
+    \ get anticipated cursor position
+    b-anticipate-cursor-down ( -- x y )
+    \ locate to anticipated position
+    b-locate ;
+
+: b-anticipate-return-event ( x y -- x y )
+    \ recompute anticipated cursor position as if return had been pressed
+    \ reset x to 1
+    swap drop 1 swap
+    \ move anticipated cursor down
+    b-anticipate-cursor-down-event ;
 
 : b-anticipate-return ( -- x y )
     \ get remembered cursor position
@@ -208,7 +247,7 @@ b-NEWLINE
     \ get remembered cursor position
     b-cursor-x @ b-cursor-y @
     \ add 1 to x and check if window width has been exceeded
-    over 1+ b-window-width > if
+    over 1+ b-window-width @ > if
         \ yes: recompute anticipated cursor position as if return had been pressed
         b-anticipate-return-event
     else
@@ -225,6 +264,42 @@ b-NEWLINE
     \ locate to anticipated position
     b-locate ;
 
+: b-anticipate-cellar-event ( x y -- x y )
+    \ recompute anticipated cursor position as if cursor moved backwards
+    \ to the right hand edge of the screen
+    \ reset x to b-window-width
+    swap drop b-window-width @ swap
+    \ move anticipated cursor up
+    b-anticipate-cursor-up-event ;
+
+: b-anticipate-cellar ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ recompute anticipated cursor position as if cursor appeared at eol
+    b-anticipate-cellar-event ;
+
+: b-anticipate-prev-char ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ sub 1 from x and check if window width has been exceeded
+    over 1- 0<= if
+        \ yes: recompute anticipated cursor position as if cursor appeared at eol
+        b-anticipate-cellar-event
+    else
+        \ no: sub 1 from x for real
+        swap 1- swap
+    endif ;
+
+: b-handle-backspace ( -- )
+    \ backspace key has been pressed
+    \ get anticipated cursor position
+    b-anticipate-prev-char ( -- x y )
+    \ locate to anticipated position
+    2dup b-locate 
+    \ rub out character under cursor
+    32 emit
+    \ locate to anticipated position again
+    b-locate ;
 
 : b-input-handler ( -- )
     key? if
@@ -232,6 +307,7 @@ b-NEWLINE
             case
                 13      of b-handle-return endof
                 27      of b-handle-escape endof
+                127     of b-handle-backspace endof
                 ( c ) \ default handling:
                 dup 32 < over 126 > or if
                 else
