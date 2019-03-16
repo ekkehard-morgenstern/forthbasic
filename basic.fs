@@ -111,12 +111,6 @@ b-NEWLINE
 b-NEWLINE
 1 5 b-locate
 
-: b-handle-cursor-left ( -- )
-    ;
-
-: b-handle-cursor-right ( -- )
-    ;
-
 : b-handle-page-up ( -- )
     ;
 
@@ -175,11 +169,9 @@ b-NEWLINE
     bye ;
 
 : b-scroll-up ( -- )
-    \ not really doing anything here, console scrolls automatically
-    ;
+    b-CSI ." S" ;
 
 : b-scroll-down ( -- )
-    \ on Linux, need to output scroll down sequence
     b-CSI ." T" ;
 
 : b-anticipate-cursor-up-event ( x y -- x y )
@@ -255,12 +247,17 @@ b-NEWLINE
         swap 1+ swap
     endif ;
 
+: b-handle-cursor-right ( -- )
+    \ cursor right has been pressed
+    \ get anticipated cursor position
+    b-anticipate-next-char ( -- x y )
+    \ locate to anticipated position
+    b-locate ;
+
 : b-handle-return ( -- )
     \ return key has been pressed
     \ get anticipated cursor position
     b-anticipate-return ( -- x y )
-    \ output newline sequence 
-    b-NEWLINE
     \ locate to anticipated position
     b-locate ;
 
@@ -289,6 +286,13 @@ b-NEWLINE
         \ no: sub 1 from x for real
         swap 1- swap
     endif ;
+
+: b-handle-cursor-left ( -- )
+    \ cursor right has been pressed
+    \ get anticipated cursor position
+    b-anticipate-prev-char ( -- x y )
+    \ locate to anticipated position
+    b-locate ;
 
 : b-handle-backspace ( -- )
     \ backspace key has been pressed
