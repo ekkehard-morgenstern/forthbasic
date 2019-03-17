@@ -13,11 +13,15 @@ variable b-window-width
 variable b-window-height
 variable b-window-size
 variable b-window-buffer
+variable b-cursor-x
+variable b-cursor-y
 
 variable b-old-window-width
 variable b-old-window-height
 variable b-old-window-size
 variable b-old-window-buffer
+
+variable b-quit-flag
 
 : b-save-window-info ( -- )
     \ back up window info
@@ -77,9 +81,7 @@ variable b-old-window-buffer
         \ free old buffer
         b-old-window-buffer @ free throw
         0 b-old-window-buffer !
-    endif
-
-
+    endif ;
 
 : b-update-window-size ( -- )
     \ save previous window parameters
@@ -90,9 +92,7 @@ variable b-old-window-buffer
     b-window-info-change? if
         \ yes: resize window buffer
         b-window-resize-buffer
-    endif
-    
-    ;
+    endif ;
 
 b-update-window-size
 
@@ -115,6 +115,26 @@ b-update-window-size
 : b-SEMIC ( -- ) 
     \ output semicolon
     ." ;" ;
+
+: b-set-autowrap ( -- )
+    b-CSI ." ?7h" ;
+
+: b-reset-autowrap ( -- )
+    b-CSI ." ?7l" ;
+
+: b-handle-refresh ( -- )
+    \ refresh entire screen
+    \ clear screen, turn off auto-wrap
+    page 0 0 at-xy b-reset-autowrap
+    \ iterate over lines
+    b-window-buffer @ b-window-height @ 0 +do 
+        \ ( addr ) set cursor position to beginning of current line
+        0 i at-xy
+        \ ( addr ) iterate over line, output chars
+        b-window-width @ 0 +do dup @ emit cell+ loop
+    loop
+    \ restore cursor position, re-enable autowrap
+    b-cursor-x @ 1- b-cursor-y @ 1- at-xy b-set-autowrap ;
 
 : b-outnum ( n -- )
     \ output decimal number (without surrounding blanks)
@@ -151,9 +171,6 @@ b-update-window-size
     \ check if cursor X position is invalid
     dup 0< over b-window-width >= or nip ;
 
-variable b-cursor-x
-variable b-cursor-y
-
 : b-set-cursor ( x y -- )
     b-cursor-y ! b-cursor-x ! ;
 
@@ -178,14 +195,9 @@ variable b-cursor-y
 
 b-cls
 
-." Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved."
-b-NEWLINE
-." Licensable under the GNU General Public License (GPL) v3 or higher."
-b-NEWLINE
-." Written for use with GNU Forth (aka GForth)."
-b-NEWLINE
-b-NEWLINE
-1 5 b-locate
+: b-cursor-address ( -- addr )
+    \ compute buffer address for cursor position
+    b-cursor-y @ 1- b-window-width @ * b-cursor-x @ 1- + cells b-window-buffer @ + ;
 
 : b-handle-page-up ( -- )
     ;
@@ -239,7 +251,8 @@ b-NEWLINE
     ;
 
 : b-handle-f12 ( -- )
-    ;
+    \ set quit flag
+    bc-true b-quit-flag ! ;
 
 : b-handle-escape ( -- )
     bye ;
@@ -381,10 +394,39 @@ b-NEWLINE
     \ locate to anticipated position again
     b-locate ;
 
+: b-emit ( chr -- )
+    \ emit character and store into window buffer
+    dup
+    \ ( chr chr ) compute buffer position
+    b-cursor-address
+    \ ( chr chr addr ) store character info into cell
+    ! 
+    \ compute anticipated cursor position
+    b-anticipate-next-char
+    \ ( chr x y ) output character for real
+    2 pick emit
+    \ ( chr x y ) locate to anticipated position
+    b-locate
+    \ ( chr )
+    drop ;
+
+: b-type ( addr u -- )
+    \ output 'u' characters from address 'addr'
+    0 u+do dup c@ b-emit char+ loop drop ;
+
+s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
+b-handle-return
+s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
+b-handle-return
+s" Written for use with GNU Forth (aka GForth)." b-type
+b-handle-return
+b-handle-return
+
 : b-input-handler ( -- )
     key? if
         ekey ekey>char if ( c ) 
             case
+                12      of b-handle-refresh endof
                 13      of b-handle-return endof
                 27      of b-handle-escape endof
                 127     of b-handle-backspace endof
@@ -396,7 +438,7 @@ b-NEWLINE
                     \ compute anticipated cursor position
                     b-anticipate-next-char ( -- x y )
                     \ output character
-                    2 pick emit
+                    2 pick b-emit
                     \ locate to anticipated position
                     b-locate
                 endif
@@ -440,7 +482,9 @@ b-NEWLINE
 
 : b-screen-editor ( -- )
     \ BASIC screen editor
-    begin b-input-handler again ;
+    begin 
+        b-input-handler 
+    b-quit-flag @ until ;
 
 b-screen-editor
 
