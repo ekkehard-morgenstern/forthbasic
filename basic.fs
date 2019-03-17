@@ -122,10 +122,14 @@ b-update-window-size
 : b-reset-autowrap ( -- )
     b-CSI ." ?7l" ;
 
+: b-clear ( -- )
+    \ clear screen and set cursor to top left screen position (raw)
+    b-ESC ." c" ;
+
 : b-handle-refresh ( -- )
     \ refresh entire screen
     \ clear screen, turn off auto-wrap
-    page 0 0 at-xy b-reset-autowrap
+    b-clear b-reset-autowrap
     \ iterate over lines
     b-window-buffer @ b-window-height @ 0 +do 
         \ ( addr ) set cursor position to beginning of current line
@@ -191,7 +195,7 @@ b-update-window-size
 
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
-    page 1 1 b-locate ;
+    b-clear 1 1 b-locate ;
 
 b-cls
 
