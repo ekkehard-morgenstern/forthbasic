@@ -45,11 +45,11 @@ variable b-quit-flag
     \ iterate over lines [0..height[
     b-window-height @ 0 +do
         \ compute buffer address for target line
-        i dup b-window-width @ * b-window-buffer @ +
+        i dup b-window-width @ * cells b-window-buffer @ +
         \ ( i taddr ) compute buffer address for source line
-        swap b-old-window-width @ * b-old-window-buffer @ + swap
+        swap b-old-window-width @ * cells b-old-window-buffer @ + 
         \ ( taddr saddr ) check if source address is beyond the old buffer
-        dup b-old-window-size @ b-old-window-buffer @ + >= if
+        dup b-old-window-size @ cells b-old-window-buffer @ + >= if
             \ ( taddr saddr ) yes: drop source address
             drop 
             \ ( taddr ) fill entire new line with zero
