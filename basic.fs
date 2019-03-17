@@ -20,19 +20,66 @@ variable b-old-window-size
 variable b-old-window-buffer
 
 : b-save-window-info ( -- )
+    \ back up window info
     b-window-width  @ b-old-window-width  !
     b-window-height @ b-old-window-height !
     b-window-size   @ b-old-window-size   !
     b-window-buffer @ b-old-window-buffer ! ;
 
 : b-get-new-window-info ( -- )
+    \ get current window dimensions
     form b-window-width ! b-window-height ! 
     b-window-width @ b-window-height @ * b-window-size ! ;
 
 : b-window-info-change? ( -- t )
+    \ see if any of the window parameters have changed
     b-window-width  @ b-old-window-width  @ <>
-    b-window-height @ b-old-window-height @ <> or
-    b-window-size   @ b-old-window-size   @ <> or ;
+    b-window-height @ b-old-window-height @ <> or ;
+
+: b-window-copy-old-to-new ( -- )
+    \ copy old window buffer to new window buffer
+    \ iterate over lines [0..height[
+    b-window-height @ 0 +do
+        \ compute buffer address for target line
+        i dup b-window-width @ * b-window-buffer @ +
+        \ ( i taddr ) compute buffer address for source line
+        swap b-old-window-width @ * b-old-window-buffer @ + swap
+        \ ( taddr saddr ) check if source address is beyond the old buffer
+        dup b-old-window-size @ b-old-window-buffer @ + >= if
+            \ ( taddr saddr ) yes: drop source address
+            drop 
+            \ ( taddr ) fill entire new line with zero
+            b-window-width @ 0 +do 0 over ! cell+ loop drop
+        else
+            \ ( taddr saddr ) no: iterate over minimum of (old,new) cells and copy them
+            b-window-width @ b-old-window-width @ min 0 +do
+                ( taddr saddr ) \ copy cell
+                2dup @ swap ! 
+                \ increment pointers
+                cell+ swap cell+ swap
+            loop drop
+            \ ( taddr ) if the old width was smaller than the new width,
+            \ fill the remaining cells with zero
+            b-window-width @ b-old-window-width @ +do 0 over ! cell+ loop drop
+        endif
+    loop ;
+
+: b-window-resize-buffer ( -- )
+    \ resize the window buffer (old vs new)
+    \ first check if there has been no previous buffer; in this case, do nothing
+    \ otherwise, copy the old content into the new buffer
+    \ allocate a new buffer
+    b-window-size @ cells allocate throw b-window-buffer !
+    \ check if an old buffer exists
+    b-old-window-buffer @ 0<> if
+        \ buffer already existed before size change: copy old content into new buffer
+        b-window-copy-old-to-new
+        \ free old buffer
+        b-old-window-buffer @ free throw
+        0 b-old-window-buffer !
+    endif
+
+
 
 : b-update-window-size ( -- )
     \ save previous window parameters
@@ -41,8 +88,8 @@ variable b-old-window-buffer
     b-get-new-window-info
     \ check if any window parameter has changed
     b-window-info-change? if
-        \ yes:
-
+        \ yes: resize window buffer
+        b-window-resize-buffer
     endif
     
     ;
