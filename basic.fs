@@ -12,11 +12,40 @@
 variable b-window-width
 variable b-window-height
 variable b-window-size
+variable b-window-buffer
 
-: b-update-window-size ( -- )
-    \ get new text window dimensions
+variable b-old-window-width
+variable b-old-window-height
+variable b-old-window-size
+variable b-old-window-buffer
+
+: b-save-window-info ( -- )
+    b-window-width  @ b-old-window-width  !
+    b-window-height @ b-old-window-height !
+    b-window-size   @ b-old-window-size   !
+    b-window-buffer @ b-old-window-buffer ! ;
+
+: b-get-new-window-info ( -- )
     form b-window-width ! b-window-height ! 
     b-window-width @ b-window-height @ * b-window-size ! ;
+
+: b-window-info-change? ( -- t )
+    b-window-width  @ b-old-window-width  @ <>
+    b-window-height @ b-old-window-height @ <> or
+    b-window-size   @ b-old-window-size   @ <> or ;
+
+: b-update-window-size ( -- )
+    \ save previous window parameters
+    b-save-window-info
+    \ get new text window parameters
+    b-get-new-window-info
+    \ check if any window parameter has changed
+    b-window-info-change? if
+        \ yes:
+
+    endif
+    
+    ;
 
 b-update-window-size
 
