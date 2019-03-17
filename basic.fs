@@ -52,7 +52,7 @@ variable b-quit-flag
         dup b-old-window-size @ cells b-old-window-buffer @ + >= if
             \ ( taddr saddr ) yes: drop source address
             drop 
-            \ ( taddr ) fill entire new line with zero
+            \ ( taddr ) fill entire new line with zeroes
             b-window-width @ 0 +do 0 over ! cell+ loop drop
         else
             \ ( taddr saddr ) no: iterate over minimum of (old,new) cells and copy them
