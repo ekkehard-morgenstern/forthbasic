@@ -86,6 +86,14 @@ variable b-quit-flag
 : b-reset-autowrap ( -- )
     b-CSI ." ?7l" ;
 
+: b-clear-buffer ( -- )
+    \ clear text buffer
+    b-window-buffer @ b-window-size @ ( addr count )
+    0 +do ( addr )
+        0 over !
+        cell+
+    loop drop ;
+
 : b-clear ( -- )
     \ clear screen and set cursor to top left screen position (raw)
     b-ESC ." c" ;
@@ -404,9 +412,7 @@ b-update-window-size
 
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
-    b-clear 1 1 b-locate ;
-
-b-cls
+    b-clear 1 1 b-locate b-clear-buffer ;
 
 : b-cursor-address ( -- addr )
     \ compute buffer address for cursor position
@@ -630,6 +636,7 @@ b-cls
     \ output 'u' characters from address 'addr'
     0 u+do dup c@ b-emit char+ loop drop ;
 
+b-cls
 s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
 b-handle-return
 s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
