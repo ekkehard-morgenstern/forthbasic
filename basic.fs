@@ -40,33 +40,89 @@ variable b-quit-flag
     b-window-width  @ b-old-window-width  @ <>
     b-window-height @ b-old-window-height @ <> or ;
 
+: b-window-zero-line ( tgtptr tgtwid -- )
+    \ zero out buffer line (no checking)
+    0 +do ( tgtptr )
+        \ clear target cell
+        dup 0 ! 
+        \ advance pointer
+        cell+   ( tgtptr )
+    loop   ( tgtptr )
+    drop ;
+
+: b-window-copy-line ( tgtptr srcptr tgtwid srcwid -- )
+    \ copy buffer line (no parameter checking!)
+    \ compute diffwid = tgtwid - srcwid
+    2dup - rot       ( tgtptr srcptr diffwid tgtwid srcwid )
+    \ compute minimum width
+    min                     ( tgtptr srcptr diffwid minwid )
+    \ copy line
+    0 +do ( tgtptr srcptr diffwid )
+        >r
+        \ copy cell
+        2dup @ ! ( tgtptr srcptr )
+        \ advance pointers
+        cell+ swap cell+ swap
+        \ prepare for next iteration
+        r>
+    loop ( tgtptr srcptr diffwid )
+    \ check if target line was larger
+    dup 0> if ( tgtptr srcptr diffwid )
+        nip     ( tgtptr diffwid )
+        \ fill remaining target cells with zero
+        b-window-zero-line
+    else    ( tgtptr srcptr diffwidh )
+        drop 2drop
+    endif ;
+        
+: b-cell-addr ( bufaddr x y linew -- addr )
+    * + cells + ;
+
+: b-copy-line-old-to-new ( y -- )
+    \ copy line from old to new window buffer (no y checking)
+    dup ( y y )
+    \ compute pointer in new buffer 
+    b-window-buffer @ swap ( y newbuf y )
+    0 swap                 ( y newbuf 0 y )
+    b-window-width @       ( y newbuf 0 y w )
+    b-cell-addr            ( y newptr )
+    swap                   ( newptr y )
+    \ compute pointer in old buffer
+    b-old-window-buffer @ swap  ( newptr oldbuf y )
+    0 swap                      ( newptr oldbuf 0 y )
+    b-old-window-width @        ( newptr oldbuf 0 y w )
+    b-cell-addr                 ( newptr oldptr )
+    \ prepare for copying line
+    b-window-width @            ( newptr oldptr newwidth )
+    b-old-window-width @        ( newptr oldptr newwidth oldwidth )
+    b-window-copy-line ;
+
 : b-window-copy-old-to-new ( -- )
     \ copy old window buffer to new window buffer
-    \ iterate over lines [0..height[
-    b-window-height @ 0 +do
-        \ compute buffer address for target line
-        i dup b-window-width @ * cells b-window-buffer @ +
-        \ ( i taddr ) compute buffer address for source line
-        swap b-old-window-width @ * cells b-old-window-buffer @ + 
-        \ ( taddr saddr ) check if source address is beyond the old buffer
-        dup b-old-window-size @ cells b-old-window-buffer @ + >= if
-            \ ( taddr saddr ) yes: drop source address
-            drop 
-            \ ( taddr ) fill entire new line with zeroes
-            b-window-width @ 0 +do 0 over ! cell+ loop drop
-        else
-            \ ( taddr saddr ) no: iterate over minimum of (old,new) cells and copy them
-            b-window-width @ b-old-window-width @ min 0 +do
-                ( taddr saddr ) \ copy cell
-                2dup @ swap ! 
-                \ increment pointers
-                cell+ swap cell+ swap
-            loop drop
-            \ ( taddr ) if the old width was smaller than the new width,
-            \ fill the remaining cells with zero
-            b-window-width @ b-old-window-width @ +do 0 over ! cell+ loop drop
-        endif
-    loop ;
+    \ get new and old window height
+    b-window-height @ b-old-window-height @     ( newh oldh )
+    \ compute difference
+    2dup - rot                                  ( diffh newh oldh )
+    \ compute minimum between old and new height
+    min                                         ( diffh minh )
+    \ loop over lines
+    0 +do   ( diffh )
+        \ copy line
+        i b-copy-line-old-to-new
+    loop ( diffh )
+    \ check if new window height was greater
+    dup 0> if ( diffh )
+        \ yes: zero out remaining lines
+        0 +do
+            b-old-window-buffer @ 0 i b-old-window-width @  ( oldbuf 0 y w )
+            b-cell-addr     ( oldptr )
+            b-old-window-width @ ( oldptr w )
+            b-window-zero-line
+        loop
+    else ( diffh )
+        \ no
+        drop
+    endif ;
 
 : b-window-resize-buffer ( -- )
     \ resize the window buffer (old vs new)
