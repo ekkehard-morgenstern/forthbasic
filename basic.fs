@@ -15,6 +15,7 @@ variable b-window-size
 variable b-window-buffer
 variable b-cursor-x
 variable b-cursor-y
+variable b-attribute
 
 variable b-old-window-width
 variable b-old-window-height
@@ -22,6 +23,45 @@ variable b-old-window-size
 variable b-old-window-buffer
 
 variable b-quit-flag
+
+: >b-attr-fg-col ( col -- attr )
+    \ convert color to attribute bits
+    7 and 8 lshift ;
+
+: >b-attr-bg-col ( col -- attr )
+    \ convert color to attribute bits
+    7 and 11 lshift ;
+
+: >b-attr-mode   ( mode -- attr )
+    \ convert mode to attribute bits
+    3 and 14 lshift ;
+
+: b-attr-fg-col>    ( attr -- col )
+    \ convert attribute bits to color
+    8 rshift 7 and ;
+
+: b-attr-bg-col>    ( attr -- col )
+    \ convert attribute bits to color
+    11 rshift 7 and ;
+
+: b-attr-mode>      ( attr -- mode )
+    \ convert attribute bits to mode
+    14 rshift 3 and ;
+
+: b-make-attr       ( mode bgcol fgcol -- attr )
+    \ make combined attribute bits from color/mode info
+    >b-attr-fg-col -rot ( fgattr mode bgcol )
+    >b-attr-bg-col -rot ( bgattr fgattr mode )
+    >b-attr-mode        ( bgattr fgattr modeattr )
+    or or ;             ( attr )
+
+: b-split-attr      ( attr -- mode bgcol fgcol )
+    \ get separate color/mode info from combined attribute bits
+    dup b-attr-mode> swap    ( mode attr )
+    dup b-attr-bg-col> swap  ( mode bgcol attr )
+    b-attr-fg-col> ;         ( mode bgcol fgcol )
+
+0 0 7 b-make-attr b-attribute !
 
 : b-save-window-info ( -- )
     \ back up window info
@@ -517,6 +557,9 @@ b-cls
 
 : b-emit ( chr -- )
     \ emit character and store into window buffer
+    \ remove unwanted bits and set attribute bits
+    255 and b-attribute @ or
+    \ ( chr )
     dup
     \ ( chr chr ) compute buffer position
     b-cursor-address
