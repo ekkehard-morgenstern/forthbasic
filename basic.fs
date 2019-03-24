@@ -552,8 +552,8 @@ b-handle-return
                 27      of b-handle-escape endof
                 127     of b-handle-backspace endof
                 ( c ) \ default handling:
-                dup 32 < over 126 > or if
-                else
+                dup 32 < over 126 > or if ( c )
+                else ( c )
                     \ printable character: first check if window size has changed
                     b-auto-update-window
                     \ compute anticipated cursor position
