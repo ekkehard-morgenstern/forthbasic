@@ -418,6 +418,37 @@ b-update-window-size
     \ compute buffer address for cursor position
     b-cursor-y @ 1- b-window-width @ * b-cursor-x @ 1- + cells b-window-buffer @ + ;
 
+: b-eol-addr ( y -- addr )
+    \ compute end of line address for specified line ( no checking )
+    b-window-buffer @ swap      ( bufaddr y )
+    b-window-width @ 1- swap    ( bufaddr w-1 y )
+    over 1+                     ( bufaddr w-1 y w )
+    b-cell-addr ;               ( celladdr )
+
+: b-mark-line ( -- )
+    \ mark current line for editing
+    \ the end address starts at the current cursor position and ends at the end of the buffer
+    \ or the line that does have a zero cell in its final column
+    b-cursor-y @ 1-     ( y )
+    begin               ( y )
+        \ compute cell address of last column in current line
+        dup b-eol-addr              ( y celladdr )
+        \ check if it contains zero
+        @ 0=                        ( y tzero )
+        \ move to next line
+        swap 1+                     ( tzero y+1 )
+        \ check if it would be off-screen
+        dup b-window-height @ >= swap ( tzero toffscr y+1 )
+        -rot                        ( y+1 tzero toffscr )
+        \ terminate loop if one of the conditions is met
+        or                          ( y+1 toneof )
+    until               ( y+1 )
+    \ check if y would be off-screen, and decrement it, if so
+    dup b-window-height @ >= if 1- then ( yend )
+    \ the beginning address starts at the current cursor position and ends at the beginning of
+    \ the buffer or the line that does have a zero cell in its final position
+    ;
+
 : b-handle-page-up ( -- )
     ;
 
