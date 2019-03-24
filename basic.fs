@@ -105,6 +105,32 @@ variable b-quit-flag
         drop
     endif ;
 
+: b-scroll-buffer-down ( -- )
+    \ scroll window buffer down, clear revealed line at the top
+    \ check if window height is at least 2
+    b-window-height @ 2 >= if
+        \ compute target pointer at (0,h-1)
+        b-window-buffer @ b-window-size @ b-window-width @ - cells + ( tgtptr )
+        \ compute source pointer at (0,h-2)
+        dup b-window-width @ cells - ( tgtptr srcptr )
+        \ loop over height-1 lines
+        b-window-height @ 1- 0 +do  ( tgtptr srcptr )
+            \ copy line
+            2dup b-window-width @ dup   ( tgtptr srcptr tgtptr srcptr w w )
+            b-window-copy-line          ( tgtptr srcptr )
+            \ compute offset to next line
+            b-window-width @ cells      ( tgtptr srcptr offs )
+            \ sub from both pointers
+            dup >r - swap r> - swap     ( tgtptr srcptr )
+        loop ( tgtptr srcptr )
+        drop ( tgtptr )
+        \ fill revealed line with zeroes
+        b-window-width @    ( tgtptr w )
+        b-window-zero-line
+    else ( h )
+        drop
+    endif ;
+
 : b-copy-line-old-to-new ( y -- )
     \ copy line from old to new window buffer (no y checking)
     dup ( y y )
@@ -348,7 +374,7 @@ b-cls
     b-CSI ." S" b-scroll-buffer-up ;
 
 : b-scroll-down ( -- )
-    b-CSI ." T" ;
+    b-CSI ." T" b-scroll-buffer-down ;
 
 : b-anticipate-cursor-up-event ( x y -- x y )
     \ recompute anticipated cursor position as if cursor up had been pressed
