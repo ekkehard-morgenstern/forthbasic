@@ -44,7 +44,7 @@ variable b-quit-flag
     \ zero out buffer line (no checking)
     0 +do ( tgtptr )
         \ clear target cell
-        dup 0 ! 
+        dup 0 swap ! 
         \ advance pointer
         cell+   ( tgtptr )
     loop   ( tgtptr )
@@ -53,14 +53,14 @@ variable b-quit-flag
 : b-window-copy-line ( tgtptr srcptr tgtwid srcwid -- )
     \ copy buffer line (no parameter checking!)
     \ compute diffwid = tgtwid - srcwid
-    2dup - rot       ( tgtptr srcptr diffwid tgtwid srcwid )
+    2dup - -rot      ( tgtptr srcptr diffwid tgtwid srcwid )
     \ compute minimum width
     min                     ( tgtptr srcptr diffwid minwid )
     \ copy line
     0 +do ( tgtptr srcptr diffwid )
         >r
         \ copy cell
-        2dup @ ! ( tgtptr srcptr )
+        2dup @ swap ! ( tgtptr srcptr )
         \ advance pointers
         cell+ swap cell+ swap
         \ prepare for next iteration
@@ -71,12 +71,39 @@ variable b-quit-flag
         nip     ( tgtptr diffwid )
         \ fill remaining target cells with zero
         b-window-zero-line
-    else    ( tgtptr srcptr diffwidh )
+    else    ( tgtptr srcptr diffwid )
         drop 2drop
     endif ;
         
 : b-cell-addr ( bufaddr x y linew -- addr )
+    \ compute window buffer cell address
     * + cells + ;
+
+: b-scroll-buffer-up ( -- )
+    \ scroll window buffer up, clear revealed line at the bottom
+    \ check if window height is at least 2
+    b-window-height @ 2 >= if
+        \ compute target pointer at (0,0)
+        b-window-buffer @           ( tgtptr )
+        \ compute source pointer at (0,1)
+        dup b-window-width @ cells + ( tgtptr srcptr )
+        \ loop over height-1 lines
+        b-window-height @ 1- 0 +do  ( tgtptr srcptr )
+            \ copy line
+            2dup b-window-width @ dup   ( tgtptr srcptr tgtptr srcptr w w )
+            b-window-copy-line          ( tgtptr srcptr )
+            \ compute offset to next line
+            b-window-width @ cells      ( tgtptr srcptr offs )
+            \ add to both pointers
+            dup >r + swap r> + swap     ( tgtptr srcptr )
+        loop ( tgtptr srcptr )
+        drop ( tgtptr )
+        \ fill revealed line with zeroes
+        b-window-width @    ( tgtptr w )
+        b-window-zero-line
+    else ( h )
+        drop
+    endif ;
 
 : b-copy-line-old-to-new ( y -- )
     \ copy line from old to new window buffer (no y checking)
@@ -102,7 +129,7 @@ variable b-quit-flag
     \ get new and old window height
     b-window-height @ b-old-window-height @     ( newh oldh )
     \ compute difference
-    2dup - rot                                  ( diffh newh oldh )
+    2dup - -rot                                 ( diffh newh oldh )
     \ compute minimum between old and new height
     min                                         ( diffh minh )
     \ loop over lines
@@ -318,7 +345,7 @@ b-cls
     bye ;
 
 : b-scroll-up ( -- )
-    b-CSI ." S" ;
+    b-CSI ." S" b-scroll-buffer-up ;
 
 : b-scroll-down ( -- )
     b-CSI ." T" ;
