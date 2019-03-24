@@ -63,6 +63,109 @@ variable b-quit-flag
 
 0 0 7 b-make-attr b-attribute !
 
+: b-NEWLINE
+    \ output newline character(s)
+    bc-cr emit bc-lf emit ;
+
+: b-ESC ( -- )
+    \ output escape character
+    bc-escape emit ;
+
+: b-CSI ( -- )
+    \ output control sequence introducer ( ESC [ )
+    b-ESC ." [" ;
+
+: b-SEMIC ( -- ) 
+    \ output semicolon
+    ." ;" ;
+
+: b-set-autowrap ( -- )
+    b-CSI ." ?7h" ;
+
+: b-reset-autowrap ( -- )
+    b-CSI ." ?7l" ;
+
+: b-clear ( -- )
+    \ clear screen and set cursor to top left screen position (raw)
+    b-ESC ." c" ;
+
+: b-outnum ( n -- )
+    \ output decimal number (without surrounding blanks)
+    dup 0= if 
+        \ if the value is zero, only output that
+        drop ." 0"
+    else
+        \ if the number is negative, output minus sign and negate
+        dup 0< if
+            ." -"
+            negate
+        endif
+        \ divide number by 10
+        dup 10 /
+        \ if non-zero, recurse with that number
+        dup 0<> if
+            recurse
+        else
+            drop
+        endif
+        \ output least significant digit of decimal number
+        10 mod bc-digit-lo + emit
+    endif ;
+
+: b-ansi-color ( attr -- )
+    \ output ANSI color sequence for specified attributes
+    b-split-attr rot    ( bgcol fgcol mode )
+    dup case ( mode )
+        0 of  
+            \ mode 0 deactivates attributes (normal mode): keep
+        endof
+        1 of   
+            \ mode 1 puts it in bold face / high intesity : keep
+        endof
+        2 of   
+            \ mode 2 makes it blink : in ANSI, 5
+            drop 5
+        endof
+        3 of   
+            \ mode 3 reverse video : in ANSI, 7
+            drop 7
+        endof
+    endcase
+    b-CSI 
+        0 b-outnum b-SEMIC      \ clear previous attributes
+        dup 0<> if  ( mode )    \ if mode is non-zero:
+            b-outnum b-SEMIC    \ output new mode
+        else
+            drop
+        endif
+        ( bgcol fgcol )
+        30 + b-outnum b-SEMIC   \ set foreground color
+        40 + b-outnum           \ set background color
+        ." m" ;
+
+: b-output-attr ( attr -- )
+    \ output attribute
+    \ mask off unwanted bits
+    0xff00 and ( attr )
+    \ see if attribute has changed
+    dup b-attribute @ <> if     \ if attribute has changed
+        \ yes: ( attr )
+        dup b-attribute !       \ remember
+        b-ansi-color            \ output
+    else
+        \ no: ignore
+        drop
+    endif ;
+
+: b-cell-emit ( chr -- )
+    \ low-level cell emitter
+    dup b-output-attr \ output attribute
+    255 and     \ remove attribute bits
+    dup 0= if   \ if zero, convert to space ' '
+        drop 32
+    then
+    emit ;
+
 : b-save-window-info ( -- )
     \ back up window info
     b-window-width  @ b-old-window-width  !
@@ -249,40 +352,6 @@ b-update-window-size
     \ check if window dimensions have changed
     form b-window-width <> b-window-height <> or ;
 
-: b-NEWLINE
-    \ output newline character(s)
-    bc-cr emit bc-lf emit ;
-
-: b-ESC ( -- )
-    \ output escape character
-    bc-escape emit ;
-
-: b-CSI ( -- )
-    \ output control sequence introducer ( ESC [ )
-    b-ESC ." [" ;
-
-: b-SEMIC ( -- ) 
-    \ output semicolon
-    ." ;" ;
-
-: b-set-autowrap ( -- )
-    b-CSI ." ?7h" ;
-
-: b-reset-autowrap ( -- )
-    b-CSI ." ?7l" ;
-
-: b-clear ( -- )
-    \ clear screen and set cursor to top left screen position (raw)
-    b-ESC ." c" ;
-
-: b-cell-emit ( chr -- )
-    \ low-level cell emitter
-    255 and     \ remove attribute bits
-    dup 0= if   \ if zero, convert to space ' '
-        drop 32
-    then
-    emit ;
-
 : b-handle-refresh ( -- )
     \ refresh entire screen
     \ clear screen, turn off auto-wrap
@@ -296,29 +365,6 @@ b-update-window-size
     loop
     \ restore cursor position, re-enable autowrap
     b-cursor-x @ 1- b-cursor-y @ 1- at-xy b-set-autowrap ;
-
-: b-outnum ( n -- )
-    \ output decimal number (without surrounding blanks)
-    dup 0= if 
-        \ if the value is zero, only output that
-        drop ." 0"
-    else
-        \ if the number is negative, output minus sign and negate
-        dup 0< if
-            ." -"
-            negate
-        endif
-        \ divide number by 10
-        dup 10 /
-        \ if non-zero, recurse with that number
-        dup 0<> if
-            recurse
-        else
-            drop
-        endif
-        \ output least significant digit of decimal number
-        10 mod bc-digit-lo + emit
-    endif ;
 
 : b-auto-update-window ( -- )
     \ check if window update is necessary, and do so if so
