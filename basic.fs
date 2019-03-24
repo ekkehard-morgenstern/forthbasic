@@ -235,6 +235,14 @@ b-update-window-size
     \ clear screen and set cursor to top left screen position (raw)
     b-ESC ." c" ;
 
+: b-cell-emit ( chr -- )
+    \ low-level cell emitter
+    255 and     \ remove attribute bits
+    dup 0= if   \ if zero, convert to space ' '
+        drop 32
+    then
+    emit ;
+
 : b-handle-refresh ( -- )
     \ refresh entire screen
     \ clear screen, turn off auto-wrap
@@ -244,7 +252,7 @@ b-update-window-size
         \ ( addr ) set cursor position to beginning of current line
         0 i at-xy
         \ ( addr ) iterate over line, output chars
-        b-window-width @ 0 +do dup @ emit cell+ loop
+        b-window-width @ 0 +do dup @ b-cell-emit cell+ loop
     loop
     \ restore cursor position, re-enable autowrap
     b-cursor-x @ 1- b-cursor-y @ 1- at-xy b-set-autowrap ;
@@ -385,7 +393,7 @@ b-cls
         \ yes: add 1 to y
         1+
         \ scroll down
-        b-scroll-down
+        b-scroll-down 
     endif ;
 
 : b-anticipate-cursor-up ( -- x y )
@@ -517,7 +525,7 @@ b-cls
     \ compute anticipated cursor position
     b-anticipate-next-char
     \ ( chr x y ) output character for real
-    2 pick emit
+    2 pick b-cell-emit
     \ ( chr x y ) locate to anticipated position
     b-locate
     \ ( chr )
