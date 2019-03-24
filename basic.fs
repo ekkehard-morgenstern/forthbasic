@@ -16,6 +16,7 @@ variable b-window-buffer
 variable b-cursor-x
 variable b-cursor-y
 variable b-attribute
+variable b-default-attribute
 
 variable b-old-window-width
 variable b-old-window-height
@@ -61,7 +62,7 @@ variable b-quit-flag
     dup b-attr-bg-col> swap  ( mode bgcol attr )
     b-attr-fg-col> ;         ( mode bgcol fgcol )
 
-0 0 7 b-make-attr b-attribute !
+0 0 7 b-make-attr dup b-attribute ! b-default-attribute !
 
 : b-NEWLINE
     \ output newline character(s)
@@ -147,6 +148,11 @@ variable b-quit-flag
     \ output attribute
     \ mask off unwanted bits
     0xff00 and ( attr )
+    \ see if attribute is zero
+    dup 0= if
+        \ yes: use default attribute
+        drop b-default-attribute @
+    endif
     \ see if attribute has changed
     dup b-attribute @ <> if     \ if attribute has changed
         \ yes: ( attr )
