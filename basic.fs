@@ -8,6 +8,12 @@
 -1 constant bc-true
 256 constant bc-max-line-size
 128 constant bc-max-lines
+7 constant bc-fg-vmsk
+7 constant bc-bg-vmsk
+3 constant bc-mode-vmsk
+8 constant bc-fg-vshf
+11 constant bc-bg-vshf
+14 constant bc-mode-vshf
 
 variable b-window-width
 variable b-window-height
@@ -27,27 +33,27 @@ variable b-quit-flag
 
 : >b-attr-fg-col ( col -- attr )
     \ convert color to attribute bits
-    7 and 8 lshift ;
+    bc-fg-vmsk and bc-fg-vshf lshift ;
 
 : >b-attr-bg-col ( col -- attr )
     \ convert color to attribute bits
-    7 and 11 lshift ;
+    bc-bg-vmsk and bc-bg-vshf lshift ;
 
 : >b-attr-mode   ( mode -- attr )
     \ convert mode to attribute bits
-    3 and 14 lshift ;
+    bc-mode-vmsk and bc-mode-vshf lshift ;
 
 : b-attr-fg-col>    ( attr -- col )
     \ convert attribute bits to color
-    8 rshift 7 and ;
+    bc-fg-vshf rshift bc-fg-vmsk and ;
 
 : b-attr-bg-col>    ( attr -- col )
     \ convert attribute bits to color
-    11 rshift 7 and ;
+    bc-bg-vshf rshift bc-bg-vmsk and ;
 
 : b-attr-mode>      ( attr -- mode )
     \ convert attribute bits to mode
-    14 rshift 3 and ;
+    bc-mode-vshf rshift bc-mode-vmsk and ;
 
 : b-make-attr       ( mode bgcol fgcol -- attr )
     \ make combined attribute bits from color/mode info
@@ -61,6 +67,21 @@ variable b-quit-flag
     dup b-attr-mode> swap    ( mode attr )
     dup b-attr-bg-col> swap  ( mode bgcol attr )
     b-attr-fg-col> ;         ( mode bgcol fgcol )
+
+: b-attr-fg-col+    ( attr -- attr )
+    b-split-attr    ( mode bgcol fgcol )
+    1+
+    b-make-attr ;   ( attr )
+
+: b-attr-bg-col+    ( attr -- attr )
+    b-split-attr    ( mode bgcol fgcol )
+    swap 1+ swap
+    b-make-attr ;   ( attr )
+
+: b-attr-mode+      ( attr -- attr )
+    b-split-attr    ( mode bgcol fgcol )
+    rot 1+ -rot
+    b-make-attr ;   ( attr )
 
 0 0 7 b-make-attr dup b-attribute ! b-default-attribute !
 
@@ -141,16 +162,16 @@ variable b-quit-flag
         endof
     endcase
     b-CSI 
-        0 b-outnum b-SEMIC      \ clear previous attributes
-        dup 0<> if  ( mode )    \ if mode is non-zero:
-            b-outnum b-SEMIC    \ output new mode
-        else
-            drop
-        endif
-        ( bgcol fgcol )
-        30 + b-outnum b-SEMIC   \ set foreground color
-        40 + b-outnum           \ set background color
-        ." m" ;
+    0 b-outnum b-SEMIC      \ clear previous attributes
+    dup 0<> if  ( mode )    \ if mode is non-zero:
+        b-outnum b-SEMIC    \ output new mode
+    else
+        drop
+    endif
+    ( bgcol fgcol )
+    30 + b-outnum b-SEMIC   \ set foreground color
+    40 + b-outnum           \ set background color
+    ." m" ;
 
 : b-output-attr ( attr -- )
     \ output attribute
@@ -471,13 +492,22 @@ b-update-window-size
     ;
 
 : b-handle-f2 ( -- )
-    ;
+    \ F2 changes the foreground color
+    b-attribute @ ( attr )
+    b-attr-fg-col+
+    b-output-attr ;
 
 : b-handle-f3 ( -- )
-    ;
+    \ F3 changes the background color
+    b-attribute @ ( attr )
+    b-attr-bg-col+
+    b-output-attr ;
 
 : b-handle-f4 ( -- )
-    ;
+    \ F4 changes the text mode
+    b-attribute @ ( attr )
+    b-attr-mode+
+    b-output-attr ;
 
 : b-handle-f5 ( -- )
     ;
