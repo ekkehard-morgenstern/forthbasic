@@ -14,6 +14,7 @@
 8 constant bc-fg-vshf
 11 constant bc-bg-vshf
 14 constant bc-mode-vshf
+0xe000 constant bc-mode-mask
 
 variable b-window-width
 variable b-window-height
@@ -23,6 +24,7 @@ variable b-cursor-x
 variable b-cursor-y
 variable b-attribute
 variable b-default-attribute
+variable b-attribute-backup
 
 variable b-old-window-width
 variable b-old-window-height
@@ -83,7 +85,7 @@ variable b-quit-flag
     rot 1+ -rot
     b-make-attr ;   ( attr )
 
-0 0 7 b-make-attr dup b-attribute ! b-default-attribute !
+1 4 3 b-make-attr dup b-attribute ! b-default-attribute !
 
 : b-NEWLINE
     \ output newline character(s)
@@ -114,10 +116,6 @@ variable b-quit-flag
         0 over !
         cell+
     loop drop ;
-
-: b-clear ( -- )
-    \ clear screen and set cursor to top left screen position (raw)
-    b-ESC ." c" ;
 
 : b-outnum ( n -- )
     \ output decimal number (without surrounding blanks)
@@ -162,16 +160,42 @@ variable b-quit-flag
         endof
     endcase
     b-CSI 
-    0 b-outnum b-SEMIC      \ clear previous attributes
-    dup 0<> if  ( mode )    \ if mode is non-zero:
-        b-outnum b-SEMIC    \ output new mode
-    else
-        drop
-    endif
-    ( bgcol fgcol )
+    ( bgcol fgcol mode )
+    b-outnum b-SEMIC        \ output new mode
     30 + b-outnum b-SEMIC   \ set foreground color
     40 + b-outnum           \ set background color
     ." m" ;
+
+: b-ansi-undo ( attr -- )
+    \ output ANSI undo sequence for specified attribute
+    b-split-attr rot    ( bgcol fgcol mode )
+    dup case ( mode )
+        0 of  
+            \ mode 0 deactivates attributes (normal mode): keep
+        endof
+        1 of   
+            \ mode 1 puts it in bold face / high intesity : keep
+            drop 22     \ undo bold/faint
+        endof
+        2 of   
+            \ mode 2 makes it blink : in ANSI, 5
+            drop 25     \ undo blink
+        endof
+        3 of   
+            \ mode 3 reverse video : in ANSI, 7
+            drop 27     \ undo reverse
+        endof
+    endcase
+    b-CSI 
+    b-outnum b-SEMIC    \ output new mode
+    ( bgcol fgcol )     \ ignore color
+    2drop
+    ." m" ;
+
+: b-clear ( -- )
+    \ clear screen and set cursor to top left screen position (raw)
+    b-ESC ." c" 
+    b-attribute @ b-ansi-color ;
 
 : b-output-attr ( attr -- )
     \ output attribute
@@ -185,8 +209,15 @@ variable b-quit-flag
     \ see if attribute has changed
     dup b-attribute @ <> if     \ if attribute has changed
         \ yes: ( attr )
-        dup b-attribute !       \ remember
-        b-ansi-color            \ output
+        dup bc-mode-mask and    \ mask off non-mode bits in new attribute
+        b-attribute @           \ get previous attribute
+        bc-mode-mask and        \ mask off non-mode bits 
+        <> if                   \ if mode has changed
+            b-attribute @
+            b-ansi-undo         \ undo old mode
+        then
+        dup b-attribute !       \ remember new attribute
+        b-ansi-color            \ output that
     else
         \ no: ignore
         drop
@@ -389,6 +420,8 @@ b-update-window-size
 
 : b-handle-refresh ( -- )
     \ refresh entire screen
+    b-attribute @ b-attribute-backup !      \ backup current attribute
+    b-default-attribute @ b-attribute !     \ reset attribute to default
     \ clear screen, turn off auto-wrap
     b-clear b-reset-autowrap
     \ iterate over lines
@@ -399,7 +432,9 @@ b-update-window-size
         b-window-width @ 0 +do dup @ b-cell-emit cell+ loop
     loop
     \ restore cursor position, re-enable autowrap
-    b-cursor-x @ 1- b-cursor-y @ 1- at-xy b-set-autowrap ;
+    b-cursor-x @ 1- b-cursor-y @ 1- at-xy b-set-autowrap 
+    \ change attribute back to what it was before
+    b-attribute-backup @ dup b-attribute ! b-ansi-color ;
 
 : b-auto-update-window ( -- )
     \ check if window update is necessary, and do so if so
@@ -705,6 +740,7 @@ b-handle-return
 s" Written for use with GNU Forth (aka GForth)." b-type
 b-handle-return
 b-handle-return
+b-handle-refresh
 
 : b-input-handler ( -- )
     key? if
