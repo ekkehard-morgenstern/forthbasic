@@ -470,27 +470,35 @@ b-update-window-size
     \ clear screen and set cursor to top left screen position
     b-clear 1 1 b-locate b-clear-buffer ;
 
+: b-xy-address  ( x y -- addr )
+    \ compute buffer address for X/Y position
+    b-window-buffer @ -rot      ( bufaddr x y )
+    b-window-width @            ( bufaddr x y w )
+    b-cell-addr ;               ( celladdr )
+
 : b-cursor-address ( -- addr )
     \ compute buffer address for cursor position
-    b-cursor-y @ 1- b-window-width @ * b-cursor-x @ 1- + cells b-window-buffer @ + ;
+    b-cursor-x @ 1- b-cursor-y @ 1- b-xy-address ;
 
 : b-eol-addr ( y -- addr )
     \ compute end of line address for specified line ( no checking )
-    b-window-buffer @ swap      ( bufaddr y )
-    b-window-width @ 1- swap    ( bufaddr w-1 y )
-    over 1+                     ( bufaddr w-1 y w )
-    b-cell-addr ;               ( celladdr )
+    b-window-width @ 1- swap    ( w-1 y )
+    b-xy-address ;              ( celladdr )
 
-: b-mark-line ( -- )
-    \ mark current line for editing
+: b-bol-addr ( y -- addr )
+    \ compute beginning of line address for specified line ( no checking )
+    0 swap                      ( 0 y )
+    b-xy-address ;              ( celladdr )
+
+: b-down-extent ( y -- y )
+    \ get bottom-most Y position for current line
     \ the end address starts at the current cursor position and ends at the end of the buffer
-    \ or the line that does have a zero cell in its final column
-    b-cursor-y @ 1-     ( y )
+    \ or the line that does have a zero cell in its rightmost column
     begin               ( y )
         \ compute cell address of last column in current line
         dup b-eol-addr              ( y celladdr )
         \ check if it contains zero
-        @ 0=                        ( y tzero )
+        @ 255 and 0=                ( y tzero )
         \ move to next line
         swap 1+                     ( tzero y+1 )
         \ check if it would be off-screen
@@ -500,9 +508,79 @@ b-update-window-size
         or                          ( y+1 toneof )
     until               ( y+1 )
     \ check if y would be off-screen, and decrement it, if so
-    dup b-window-height @ >= if 1- then ( yend )
+    dup b-window-height @ >= if 1- then ( yend ) ;
+
+: b-up-extent ( y -- y )
+    \ get top-most Y position for current line
     \ the beginning address starts at the current cursor position and ends at the beginning of
-    \ the buffer or the line that does have a zero cell in its final position
+    \ the buffer or the line that does have a zero cell in its rightmost column
+    begin               ( y )
+        \ compute cell address of last column in current line
+        dup b-eol-addr              ( y celladdr )
+        \ check if it contains zero
+        @ 255 and 0=                ( y tzero )
+        \ move to previous line
+        swap 1-                     ( tzero y-1 )
+        \ check if it would be off-screen
+        dup 0< swap                 ( tzero toffscr y-1 )
+        -rot                        ( y-1 tzero toffscr )
+        \ terminate loop if one of the conditions is met
+        or                          ( y-1 toneof )
+    until               ( y-1 )
+    \ check if y would be off-screen, and increment it, if so
+    dup 0< if 1+ then ( ybeg ) ;
+
+: b-y-line-extent ( y -- ybeg yend )
+    \ get upward and downward extent of current line, in Y positions
+    dup b-up-extent swap    ( ybeg y )
+    b-down-extent           ( ybeg yend ) ;
+
+: b-right-extent ( y -- x )
+    \ get rightmost character position in current line at specified Y position
+    \ by counting backwards from the rightmost column 
+    \ compute cell address of first column in current line
+    dup b-bol-addr swap         ( boladdr y )
+    \ compute cell address of last  column in current line
+    b-eol-addr                  ( boladdr eoladdr )
+    begin       ( boladdr eoladdr )
+        \ check if current cell contains zero (if not, it's the last character of the line)
+        dup @ 255 and 0=        ( boladdr eoladdr tzero )
+        \ decrement position
+        -rot 1-                 ( tzero boladdr eoladdr )
+        \ see if it's off-screen
+        2dup > >r rot r>        ( boladdr eoladdr tzero offscr ) 
+        \ if one of the conditions is fullfilled, stop loop
+        or                      ( boladdr eoladdr oneof )
+    until                       ( boladdr eoladdr )
+    \ if position was offscreen, correct it
+    2dup > if 1+ then           ( boladdr eoladdr )
+    \ convert to X position
+    swap - ;
+
+: b-line-extent ( y -- xbeg ybeg xend yend )
+    \ get line extent backwards and forward of the specified Y position
+    \ first, up/down extent
+    b-y-line-extent     ( ybeg yend )
+    \ beginning column of line is always 0
+    0 -rot              ( 0 ybeg yend )
+    \ get right extent of final line
+    dup b-right-extent swap ;   ( 0 ybeg xend yend )
+
+: b-line-extent-addr ( y -- begaddr endaddr )
+    \ get line extent in X/Y positions
+    b-line-extent   ( xbeg ybeg xend yend )
+    b-xy-address    ( xbeg ybeg endaddr )
+    -rot            ( endaddr xbeg ybeg )
+    b-xy-address    ( endaddr begaddr )
+    swap ;          ( begaddr endaddr )
+
+: b-line-init       ( y -- )
+    \ initialize line on-screen (in buffer) by filling in gaps (0 bytes)
+    ;
+
+: b-mark-line ( -- )
+    \ mark current line for editing
+    b-cursor-y @ 1-     ( y )
     ;
 
 : b-handle-page-up ( -- )
