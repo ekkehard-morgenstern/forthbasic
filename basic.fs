@@ -430,7 +430,8 @@ b-update-window-size
         0 i at-xy
         \ ( addr ) iterate over line, output chars
         b-window-width @ 0 +do dup @ b-cell-emit cell+ loop
-    loop
+    loop ( addr )
+    drop
     \ restore cursor position, re-enable autowrap
     b-cursor-x @ 1- b-cursor-y @ 1- at-xy b-set-autowrap 
     \ change attribute back to what it was before
@@ -496,19 +497,16 @@ b-update-window-size
     \ or the line that does have a zero cell in its rightmost column
     begin               ( y )
         \ compute cell address of last column in current line
-        dup b-eol-addr              ( y celladdr )
+        dup b-eol-addr .s       ( y celladdr )
         \ check if it contains zero
-        @ 255 and 0=                ( y tzero )
-        \ move to next line
-        swap 1+                     ( tzero y+1 )
-        \ check if it would be off-screen
-        dup b-window-height @ >= swap ( tzero toffscr y+1 )
-        -rot                        ( y+1 tzero toffscr )
-        \ terminate loop if one of the conditions is met
-        or                          ( y+1 toneof )
-    until               ( y+1 )
-    \ check if y would be off-screen, and decrement it, if so
-    dup b-window-height @ >= if 1- then ( yend ) ;
+        @ 255 and 0=                    ( y zero )
+        \ check if next line would be off-screen
+        over 1+ b-window-height @ >=    ( y zero offscr )
+        \ stop loop if any of these conditions is met
+        or while                        ( y )
+        \ nope, can increment position and iterate loop
+        1+
+    repeat ;            ( yend )
 
 : b-up-extent ( y -- y )
     \ get top-most Y position for current line
@@ -518,17 +516,14 @@ b-update-window-size
         \ compute cell address of last column in current line
         dup b-eol-addr              ( y celladdr )
         \ check if it contains zero
-        @ 255 and 0=                ( y tzero )
-        \ move to previous line
-        swap 1-                     ( tzero y-1 )
-        \ check if it would be off-screen
-        dup 0< swap                 ( tzero toffscr y-1 )
-        -rot                        ( y-1 tzero toffscr )
-        \ terminate loop if one of the conditions is met
-        or                          ( y-1 toneof )
-    until               ( y-1 )
-    \ check if y would be off-screen, and increment it, if so
-    dup 0< if 1+ then ( ybeg ) ;
+        @ 255 and 0=                ( y zero )
+        \ check if previous line would be off-screen
+        over 1- 0<                  ( y zero offscr )
+        \ stop loop if any of these conditions is met
+        or while                    ( y )
+        \ nope, can decrement position and iterate loop
+        1-
+    repeat ;            ( ybeg )
 
 : b-y-line-extent ( y -- ybeg yend )
     \ get upward and downward extent of current line, in Y positions
