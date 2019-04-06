@@ -242,7 +242,9 @@ variable b-quit-flag
     \ clear screen and set cursor to top left screen position (raw)
     b-ESC ." c" 
     \ after that, emit current attribute
-    b-attribute @ b-ansi-color ;
+    b-attribute @ b-ansi-color 
+    \ clear mark
+    0 b-mark-flag ! ;
 
 : b-clear-def ( -- )
     \ clear screen and set cursor to top left screen position (raw)
@@ -439,12 +441,16 @@ variable b-quit-flag
         drop
     endif ;
 
+: b-window-alloc-buffer ( -- )
+    \ allocate a new buffer
+    b-window-size @ cells allocate throw b-window-buffer ! ;
+
 : b-window-resize-buffer ( -- )
     \ resize the window buffer (old vs new)
     \ first check if there has been no previous buffer; in this case, do nothing
     \ otherwise, copy the old content into the new buffer
     \ allocate a new buffer
-    b-window-size @ cells allocate throw b-window-buffer !
+    b-window-alloc-buffer
     \ check if an old buffer exists
     b-old-window-buffer @ 0<> if
         \ buffer already existed before size change: copy old content into new buffer
@@ -453,21 +459,6 @@ variable b-quit-flag
         b-old-window-buffer @ free throw
         0 b-old-window-buffer !
     endif ;
-
-: b-update-window-size ( -- )
-    \ save previous window parameters
-    b-save-window-info
-    \ get new text window parameters
-    b-get-new-window-info
-    \ check if any window parameter has changed
-    b-window-info-change? if
-        \ yes: resize window buffer
-        b-window-resize-buffer
-    endif ;
-
-: b-update-window-size? ( -- t )
-    \ check if window dimensions have changed
-    form b-window-width <> b-window-height <> or ;
 
 : b-xy-address  ( x y -- addr )
     \ compute buffer address for X/Y position
@@ -505,39 +496,24 @@ variable b-quit-flag
     0 b-window-height @
     b-refresh-lines ;
 
-: b-auto-update-window ( -- )
-    \ check if window update is necessary, and do so if so
-    b-update-window-size? if b-update-window-size then ;
-
 : b-cursor-y-invalid? ( n -- t )
     \ check if cursor Y position is invalid
-    dup 0< over b-window-height >= or nip ;
+    dup 0<                  ( n xbeg )
+    over                    ( n xbeg n )
+    b-window-height @ >=    ( n xbeg xend )
+    or                      ( n xrange )
+    swap drop ;             ( xrange )
 
 : b-cursor-x-invalid? ( n -- t )
     \ check if cursor X position is invalid
-    dup 0< over b-window-width >= or nip ;
+    dup 0<              ( n xbeg )
+    over                ( n xbeg n )
+    b-window-width @ >= ( n xbeg xend )
+    or                  ( n xrange )
+    swap drop ;         ( xrange )
 
 : b-set-cursor ( x y -- )
     b-cursor-y ! b-cursor-x ! ;
-
-: b-not ( n -- ~n )
-    invert ;
-
-: b-locate ( x y -- )
-    \ set cursor to specified screen position (starting from 1,1)
-    b-auto-update-window
-    ( x y -- x-1 y-1 )
-    1- swap 1- swap
-    ( x y -- x y t )
-    dup b-cursor-y-invalid?
-    ( x y t -- x y t t )
-    2 pick b-cursor-x-invalid?
-    ( x y t t -- ) 
-    or b-not if 2dup 1+ swap 1+ swap b-set-cursor at-xy then ;
-
-: b-cls ( -- )
-    \ clear screen and set cursor to top left screen position
-    b-clear 1 1 b-locate b-clear-buffer ;
 
 : b-cursor-address ( -- addr )
     \ compute buffer address for cursor position
@@ -722,6 +698,13 @@ variable b-quit-flag
     b-line-extent-addr ( begaddr endaddr )
     b-line-init-addr ;
 
+: b-refresh-line-addr   ( begaddr endaddr -- )
+    \ refresh entire line from buffeer address range
+    \ convert buffer addresses to pos/cnt
+    b-bufaddr-to-poscnt     ( y cnt )
+    \ refresh lines on-screen
+    2dup b-refresh-lines ;  ( y cnt )
+
 : b-mark-line ( -- )
     \ mark current line for editing
     b-cursor-y @ 1-         ( y )
@@ -731,12 +714,103 @@ variable b-quit-flag
     2dup b-line-init-addr   ( begaddr endaddr )
     \ apply hilight color attribute to line
     2dup b-line-mark-addr   ( begaddr endaddr )
-    \ convert buffer addresses to pos/cnt
-    b-bufaddr-to-poscnt     ( y cnt )
-    \ refresh lines on-screen
-    2dup b-refresh-lines    ( y cnt )
+    \ refresh line
+    b-refresh-line-addr
     \ update marking variables
     b-mark-cnt ! b-mark-y ! -1 b-mark-flag ! ;
+
+: b-unmark-line ( -- )
+    \ unmark line if one was marked
+    b-mark-flag @ if
+        \ clear mark flag
+        0 b-mark-flag !
+        \ get line extent of marked line
+        b-mark-y @
+        b-line-extent-addr  ( begaddr endaddr )
+        \ clear hilight
+        2dup b-line-unmark-addr
+        \ refresh line
+        b-refresh-line-addr
+    endif ;
+
+: b-locate-nac ( x y -- )
+    \ set cursor to specified screen position (starting from 1,1)
+    \ (no update check)
+    1- swap 1- swap             ( x y )
+    \ check X/Y position
+    dup b-cursor-y-invalid?     ( x y yinval )
+    rot                         ( y yinval x )
+    dup b-cursor-x-invalid?     ( y yinval x xinval )
+    >r                          ( y yinval x ) ( R: xinval )
+    swap                        ( y x yinval ) ( R: xinval )
+    r>                          ( y x yinval xinval )
+    or                          ( y x invalid )
+    \ if cursor position invalid: correct it
+    if                          ( y x )
+        dup 0< if drop 0 then   ( y x<0?0:x )
+        b-window-width @ 1- r>  ( y x ) ( R: w-1 )
+        dup r@ > if drop r@ then    ( y x>w-1?w-1:x ) ( R: w-1 )
+        rdrop                   ( y x )
+        swap                    ( x y )
+        dup 0< if drop 0 then   ( x y<0?0:y )
+        b-window-height @ 1- r> ( x y ) ( R: h-1 )
+        dup r@ > if drop r@ then    ( x y>h-1?h-1:y ) ( R: h-1 )
+        rdrop                   ( x y )
+    else
+        swap                    ( x y )
+    endif
+    \ set cursor position
+    2dup                    ( x y x y )
+    1+ swap 1+ swap         ( x y x+1 y+1 )
+    b-set-cursor            ( x y )
+    at-xy ;
+
+: b-init-window ( -- )
+    1 1 b-set-cursor
+    b-get-new-window-info
+    b-window-alloc-buffer ;
+
+: b-update-window-size ( -- )
+    .s ." dong dong"
+    \ save previous window parameters
+    b-save-window-info
+    \ get new text window parameters
+    b-get-new-window-info
+    \ check if any window parameter has changed
+    b-window-info-change? if
+        \ yes: resize window buffer
+        b-mark-flag @       ( markflg )
+        b-unmark-line       ( markflg )
+        b-window-resize-buffer ( markflg )
+        \ attempt to set cursor at last known position
+        b-cursor-x @ b-cursor-y @ b-locate-nac      ( markflg )
+        \ if a mark was set, check Y position
+        if
+            b-mark-y @ b-window-height @ >= if
+                \ beyond screen: clear mark flag
+                0 b-mark-flag !
+            else
+                \ within screen boundaries: try to reinstate mark
+                b-mark-line
+            endif
+        endif
+    endif ;
+
+: b-update-window-size? ( -- t )
+    \ check if window dimensions have changed
+    form b-window-width <> b-window-height <> or ;
+
+: b-auto-update-window ( -- )
+    \ check if window update is necessary, and do so if so
+    b-update-window-size? if b-update-window-size then ;
+
+: b-locate ( x y -- )
+    \ set cursor to specified screen position (starting from 1,1)
+    b-locate-nac ;
+
+: b-cls ( -- )
+    \ clear screen and set cursor to top left screen position
+    b-clear 1 1 b-locate b-clear-buffer ;
 
 : b-handle-page-up ( -- )
     ;
@@ -820,7 +894,7 @@ variable b-quit-flag
         \ yes: add 1 to y
         1+
         \ scroll down
-        b-scroll-down 
+        b-scroll-down   
     endif ;
 
 : b-anticipate-cursor-up ( -- x y )
@@ -830,10 +904,11 @@ variable b-quit-flag
     b-anticipate-cursor-up-event ;
 
 : b-handle-cursor-up ( -- )
+    b-unmark-line
     \ get anticipated cursor position
     b-anticipate-cursor-up ( -- x y )
     \ locate to anticipated position
-    b-locate ;
+    b-locate b-mark-line ;
 
 : b-anticipate-cursor-down-event ( x y -- x y )
     \ recompute anticipated cursor position as if cursor down had been pressed
@@ -844,7 +919,7 @@ variable b-quit-flag
         \ yes: sub 1 from y
         1-
         \ scroll up
-        b-scroll-up
+        b-scroll-up 
     endif ;
 
 : b-anticipate-cursor-down ( -- x y )
@@ -854,10 +929,11 @@ variable b-quit-flag
     b-anticipate-cursor-down-event ;
 
 : b-handle-cursor-down ( -- )
+    b-unmark-line
     \ get anticipated cursor position
     b-anticipate-cursor-down ( -- x y )
     \ locate to anticipated position
-    b-locate ;
+    b-locate b-mark-line ;
 
 : b-anticipate-return-event ( x y -- x y )
     \ recompute anticipated cursor position as if return had been pressed
@@ -893,10 +969,11 @@ variable b-quit-flag
 
 : b-handle-return ( -- )
     \ return key has been pressed
+    b-unmark-line
     \ get anticipated cursor position
     b-anticipate-return ( -- x y )
     \ locate to anticipated position
-    b-locate ;
+    b-locate b-mark-line ;
 
 : b-anticipate-cellar-event ( x y -- x y )
     \ recompute anticipated cursor position as if cursor moved backwards
@@ -968,6 +1045,7 @@ variable b-quit-flag
 : b-input-handler ( -- )
     key? if
         ekey ekey>char if ( c ) 
+            b-auto-update-window
             case
                 12      of b-handle-refresh endof
                 13      of b-handle-return endof
@@ -976,8 +1054,6 @@ variable b-quit-flag
                 ( c ) \ default handling:
                 dup 32 < over 126 > or if ( c )
                 else ( c )
-                    \ printable character: first check if window size has changed
-                    b-auto-update-window
                     \ compute anticipated cursor position
                     b-anticipate-next-char ( -- x y )
                     \ output character
@@ -988,6 +1064,7 @@ variable b-quit-flag
             endcase
 
         else ekey>fkey if ( key-id )
+            b-auto-update-window
             case
                 \ cursor keys
                 k-up    of b-handle-cursor-up       endof
@@ -1031,15 +1108,16 @@ variable b-quit-flag
 
 bc-def-mode bc-def-bgcol bc-def-fgcol b-make-attr dup b-attribute ! b-default-attribute !
 bc-mark-mode bc-mark-bgcol bc-mark-fgcol b-make-attr b-mark-attribute ! 0 b-mark-flag !
-b-update-window-size
+b-init-window
 b-cls
 s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
 b-handle-return
 s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
 b-handle-return
 s" Written for use with GNU Forth (aka GForth)." b-type
-b-handle-return
-b-handle-return
-b-handle-refresh
-b-screen-editor
+\ TODO : schrott auf dem stack
+\ b-handle-return
+\ b-handle-return
+\ b-handle-refresh
+\ b-screen-editor
 
