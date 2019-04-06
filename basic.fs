@@ -963,16 +963,23 @@ variable b-quit-flag
 : b-handle-cursor-right ( -- )
     \ cursor right has been pressed
     \ get anticipated cursor position
+    b-unmark-line 
     b-anticipate-next-char ( -- x y )
+    \ locate to anticipated position
+    b-locate b-mark-line ;
+
+: b-output-return ( -- )
+    \ output a newline
+    \ get anticipated cursor position
+    b-anticipate-return ( -- x y )
     \ locate to anticipated position
     b-locate ;
 
 : b-handle-return ( -- )
     \ return key has been pressed
-    \ get anticipated cursor position
-    b-anticipate-return ( -- x y )
-    \ locate to anticipated position
-    b-locate ;
+    b-unmark-line
+    b-output-return 
+    b-mark-line ;
 
 : b-anticipate-cellar-event ( x y -- x y )
     \ recompute anticipated cursor position as if cursor moved backwards
@@ -1003,20 +1010,22 @@ variable b-quit-flag
 : b-handle-cursor-left ( -- )
     \ cursor right has been pressed
     \ get anticipated cursor position
+    b-unmark-line
     b-anticipate-prev-char ( -- x y )
     \ locate to anticipated position
-    b-locate ;
+    b-locate b-mark-line ;
 
 : b-handle-backspace ( -- )
     \ backspace key has been pressed
     \ get anticipated cursor position
+    b-unmark-line
     b-anticipate-prev-char ( -- x y )
     \ locate to anticipated position
     2dup b-locate 
     \ rub out character under cursor
     32 emit
     \ locate to anticipated position again
-    b-locate ;
+    b-locate b-mark-line ;
 
 : b-emit ( chr -- )
     \ emit character and store into window buffer
@@ -1053,7 +1062,9 @@ variable b-quit-flag
                 ( c ) \ default handling:
                 dup 32 < over 126 > or if ( c )
                 else ( c )
+                    b-unmark-line
                     dup b-emit
+                    b-mark-line
                 endif
             endcase
 
@@ -1105,12 +1116,13 @@ bc-mark-mode bc-mark-bgcol bc-mark-fgcol b-make-attr b-mark-attribute ! 0 b-mark
 b-init-window
 b-cls
 s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
-b-handle-return
+b-output-return
 s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
-b-handle-return
+b-output-return
 s" Written for use with GNU Forth (aka GForth)." b-type
-b-handle-return
-b-handle-return
+b-output-return
+b-output-return
 b-handle-refresh
+b-mark-line
 b-screen-editor
 
