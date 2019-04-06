@@ -703,7 +703,7 @@ variable b-quit-flag
     \ convert buffer addresses to pos/cnt
     b-bufaddr-to-poscnt     ( y cnt )
     \ refresh lines on-screen
-    2dup b-refresh-lines ;  ( y cnt )
+    b-refresh-lines ;
 
 : b-mark-line ( -- )
     \ mark current line for editing
@@ -715,9 +715,10 @@ variable b-quit-flag
     \ apply hilight color attribute to line
     2dup b-line-mark-addr   ( begaddr endaddr )
     \ refresh line
-    b-refresh-line-addr     ( y cnt )
+    b-bufaddr-to-poscnt     ( y cnt )
+    2dup b-refresh-lines
     \ update marking variables
-    b-mark-cnt ! b-mark-y ! -1 b-mark-flag ! .s ;
+    b-mark-cnt ! b-mark-y ! -1 b-mark-flag ! ;
 
 : b-unmark-line ( -- )
     \ unmark line if one was marked
