@@ -748,12 +748,12 @@ variable b-quit-flag
     \ if cursor position invalid: correct it
     if                          ( y x )
         dup 0< if drop 0 then   ( y x<0?0:x )
-        b-window-width @ 1- r>  ( y x ) ( R: w-1 )
+        b-window-width @ 1- >r  ( y x ) ( R: w-1 )
         dup r@ > if drop r@ then    ( y x>w-1?w-1:x ) ( R: w-1 )
         rdrop                   ( y x )
         swap                    ( x y )
         dup 0< if drop 0 then   ( x y<0?0:y )
-        b-window-height @ 1- r> ( x y ) ( R: h-1 )
+        b-window-height @ 1- >r ( x y ) ( R: h-1 )
         dup r@ > if drop r@ then    ( x y>h-1?h-1:y ) ( R: h-1 )
         rdrop                   ( x y )
     else
@@ -771,7 +771,6 @@ variable b-quit-flag
     b-window-alloc-buffer ;
 
 : b-update-window-size ( -- )
-    .s ." dong dong"
     \ save previous window parameters
     b-save-window-info
     \ get new text window parameters
@@ -969,11 +968,10 @@ variable b-quit-flag
 
 : b-handle-return ( -- )
     \ return key has been pressed
-    b-unmark-line
     \ get anticipated cursor position
     b-anticipate-return ( -- x y )
     \ locate to anticipated position
-    b-locate b-mark-line ;
+    b-locate ;
 
 : b-anticipate-cellar-event ( x y -- x y )
     \ recompute anticipated cursor position as if cursor moved backwards
@@ -1115,9 +1113,8 @@ b-handle-return
 s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
 b-handle-return
 s" Written for use with GNU Forth (aka GForth)." b-type
-\ TODO : schrott auf dem stack
-\ b-handle-return
-\ b-handle-return
-\ b-handle-refresh
-\ b-screen-editor
+b-handle-return
+b-handle-return
+b-handle-refresh
+b-screen-editor
 
