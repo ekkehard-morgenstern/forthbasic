@@ -1,4 +1,6 @@
 
+\ === CONSTANTS =========================================================================
+
 13 constant bc-cr
 10 constant bc-lf
 27 constant bc-escape
@@ -21,6 +23,8 @@
 1 constant bc-mark-mode
 5 constant bc-mark-bgcol
 3 constant bc-mark-fgcol
+
+\ === VARIABLES =========================================================================
 
 \ window dimensions, in character cells
 variable b-window-width
@@ -81,6 +85,8 @@ variable b-old-window-buffer
 \ quit flag for screen editor (if set, drops back into FORTH)
 variable b-quit-flag
 
+\ === ATTRIBUTE MANAGEMENT ==============================================================
+
 : >b-attr-fg-col ( col -- attr )
     \ convert color to attribute bits
     bc-fg-vmsk and bc-fg-vshf lshift ;
@@ -132,6 +138,8 @@ variable b-quit-flag
     b-split-attr    ( mode bgcol fgcol )
     rot 1+ -rot
     b-make-attr ;   ( attr )
+
+\ === CONTROL SEQUENCES =================================================================
 
 : b-NEWLINE
     \ output newline character(s)
@@ -287,6 +295,8 @@ variable b-quit-flag
     then
     emit ;
 
+\ === WINDOW RESIZE MANAGEMENT ==========================================================
+
 : b-save-window-info ( -- )
     \ back up window info
     b-window-width  @ b-old-window-width  !
@@ -342,58 +352,6 @@ variable b-quit-flag
 : b-cell-addr ( bufaddr x y linew -- addr )
     \ compute window buffer cell address
     * + cells + ;
-
-: b-scroll-buffer-up ( -- )
-    \ scroll window buffer up, clear revealed line at the bottom
-    \ check if window height is at least 2
-    b-window-height @ 2 >= if
-        \ compute target pointer at (0,0)
-        b-window-buffer @           ( tgtptr )
-        \ compute source pointer at (0,1)
-        dup b-window-width @ cells + ( tgtptr srcptr )
-        \ loop over height-1 lines
-        b-window-height @ 1- 0 +do  ( tgtptr srcptr )
-            \ copy line
-            2dup b-window-width @ dup   ( tgtptr srcptr tgtptr srcptr w w )
-            b-window-copy-line          ( tgtptr srcptr )
-            \ compute offset to next line
-            b-window-width @ cells      ( tgtptr srcptr offs )
-            \ add to both pointers
-            dup >r + swap r> + swap     ( tgtptr srcptr )
-        loop ( tgtptr srcptr )
-        drop ( tgtptr )
-        \ fill revealed line with zeroes
-        b-window-width @    ( tgtptr w )
-        b-window-zero-line
-    else ( h )
-        drop
-    endif ;
-
-: b-scroll-buffer-down ( -- )
-    \ scroll window buffer down, clear revealed line at the top
-    \ check if window height is at least 2
-    b-window-height @ 2 >= if
-        \ compute target pointer at (0,h-1)
-        b-window-buffer @ b-window-size @ b-window-width @ - cells + ( tgtptr )
-        \ compute source pointer at (0,h-2)
-        dup b-window-width @ cells - ( tgtptr srcptr )
-        \ loop over height-1 lines
-        b-window-height @ 1- 0 +do  ( tgtptr srcptr )
-            \ copy line
-            2dup b-window-width @ dup   ( tgtptr srcptr tgtptr srcptr w w )
-            b-window-copy-line          ( tgtptr srcptr )
-            \ compute offset to next line
-            b-window-width @ cells      ( tgtptr srcptr offs )
-            \ sub from both pointers
-            dup >r - swap r> - swap     ( tgtptr srcptr )
-        loop ( tgtptr srcptr )
-        drop ( tgtptr )
-        \ fill revealed line with zeroes
-        b-window-width @    ( tgtptr w )
-        b-window-zero-line
-    else ( h )
-        drop
-    endif ;
 
 : b-copy-line-old-to-new ( y -- )
     \ copy line from old to new window buffer (no y checking)
@@ -460,6 +418,64 @@ variable b-quit-flag
         0 b-old-window-buffer !
     endif ;
 
+\ === SCREEN UPDATE MANAGMENT ===========================================================
+
+\ --- SCROLLING -------------------------------------------------------------------------
+
+: b-scroll-buffer-up ( -- )
+    \ scroll window buffer up, clear revealed line at the bottom
+    \ check if window height is at least 2
+    b-window-height @ 2 >= if
+        \ compute target pointer at (0,0)
+        b-window-buffer @           ( tgtptr )
+        \ compute source pointer at (0,1)
+        dup b-window-width @ cells + ( tgtptr srcptr )
+        \ loop over height-1 lines
+        b-window-height @ 1- 0 +do  ( tgtptr srcptr )
+            \ copy line
+            2dup b-window-width @ dup   ( tgtptr srcptr tgtptr srcptr w w )
+            b-window-copy-line          ( tgtptr srcptr )
+            \ compute offset to next line
+            b-window-width @ cells      ( tgtptr srcptr offs )
+            \ add to both pointers
+            dup >r + swap r> + swap     ( tgtptr srcptr )
+        loop ( tgtptr srcptr )
+        drop ( tgtptr )
+        \ fill revealed line with zeroes
+        b-window-width @    ( tgtptr w )
+        b-window-zero-line
+    else ( h )
+        drop
+    endif ;
+
+: b-scroll-buffer-down ( -- )
+    \ scroll window buffer down, clear revealed line at the top
+    \ check if window height is at least 2
+    b-window-height @ 2 >= if
+        \ compute target pointer at (0,h-1)
+        b-window-buffer @ b-window-size @ b-window-width @ - cells + ( tgtptr )
+        \ compute source pointer at (0,h-2)
+        dup b-window-width @ cells - ( tgtptr srcptr )
+        \ loop over height-1 lines
+        b-window-height @ 1- 0 +do  ( tgtptr srcptr )
+            \ copy line
+            2dup b-window-width @ dup   ( tgtptr srcptr tgtptr srcptr w w )
+            b-window-copy-line          ( tgtptr srcptr )
+            \ compute offset to next line
+            b-window-width @ cells      ( tgtptr srcptr offs )
+            \ sub from both pointers
+            dup >r - swap r> - swap     ( tgtptr srcptr )
+        loop ( tgtptr srcptr )
+        drop ( tgtptr )
+        \ fill revealed line with zeroes
+        b-window-width @    ( tgtptr w )
+        b-window-zero-line
+    else ( h )
+        drop
+    endif ;
+
+\ --- SCREEN REFRESH --------------------------------------------------------------------
+
 : b-xy-address  ( x y -- addr )
     \ compute buffer address for X/Y position
     b-window-buffer @ -rot      ( bufaddr x y )
@@ -496,6 +512,8 @@ variable b-quit-flag
     0 b-window-height @
     b-refresh-lines ;
 
+\ --- CURSOR POSITIONING ----------------------------------------------------------------
+
 : b-cursor-y-invalid? ( n -- t )
     \ check if cursor Y position is invalid
     dup 0<                  ( n xbeg )
@@ -518,6 +536,40 @@ variable b-quit-flag
 : b-cursor-address ( -- addr )
     \ compute buffer address for cursor position
     b-cursor-x @ 1- b-cursor-y @ 1- b-xy-address ;
+
+: b-locate-nac ( x y -- )
+    \ set cursor to specified screen position (starting from 1,1)
+    \ (no update check)
+    1- swap 1- swap             ( x y )
+    \ check X/Y position
+    dup b-cursor-y-invalid?     ( x y yinval )
+    rot                         ( y yinval x )
+    dup b-cursor-x-invalid?     ( y yinval x xinval )
+    >r                          ( y yinval x ) ( R: xinval )
+    swap                        ( y x yinval ) ( R: xinval )
+    r>                          ( y x yinval xinval )
+    or                          ( y x invalid )
+    \ if cursor position invalid: correct it
+    if                          ( y x )
+        dup 0< if drop 0 then   ( y x<0?0:x )
+        b-window-width @ 1- >r  ( y x ) ( R: w-1 )
+        dup r@ > if drop r@ then    ( y x>w-1?w-1:x ) ( R: w-1 )
+        rdrop                   ( y x )
+        swap                    ( x y )
+        dup 0< if drop 0 then   ( x y<0?0:y )
+        b-window-height @ 1- >r ( x y ) ( R: h-1 )
+        dup r@ > if drop r@ then    ( x y>h-1?h-1:y ) ( R: h-1 )
+        rdrop                   ( x y )
+    else
+        swap                    ( x y )
+    endif
+    \ set cursor position
+    2dup                    ( x y x y )
+    1+ swap 1+ swap         ( x y x+1 y+1 )
+    b-set-cursor            ( x y )
+    at-xy ;
+
+\ --- LINE MEASUREMENT ------------------------------------------------------------------
 
 : b-eol-addr ( y -- addr )
     \ compute end of line address for specified line ( no checking )
@@ -643,6 +695,8 @@ variable b-quit-flag
     b-bufaddr-to-y 1+   ( y endY+1 )
     over - ;            ( y cnt )
 
+\ --- LINE UPDATES ----------------------------------------------------------------------
+
 : b-line-init-addr  ( begaddr endaddr -- )
     \ initialize line on-screen (in buffer) by filling in gaps (0 bytes)
     \ (doesn't change cell attributes)
@@ -734,37 +788,7 @@ variable b-quit-flag
         b-refresh-line-addr
     endif ;
 
-: b-locate-nac ( x y -- )
-    \ set cursor to specified screen position (starting from 1,1)
-    \ (no update check)
-    1- swap 1- swap             ( x y )
-    \ check X/Y position
-    dup b-cursor-y-invalid?     ( x y yinval )
-    rot                         ( y yinval x )
-    dup b-cursor-x-invalid?     ( y yinval x xinval )
-    >r                          ( y yinval x ) ( R: xinval )
-    swap                        ( y x yinval ) ( R: xinval )
-    r>                          ( y x yinval xinval )
-    or                          ( y x invalid )
-    \ if cursor position invalid: correct it
-    if                          ( y x )
-        dup 0< if drop 0 then   ( y x<0?0:x )
-        b-window-width @ 1- >r  ( y x ) ( R: w-1 )
-        dup r@ > if drop r@ then    ( y x>w-1?w-1:x ) ( R: w-1 )
-        rdrop                   ( y x )
-        swap                    ( x y )
-        dup 0< if drop 0 then   ( x y<0?0:y )
-        b-window-height @ 1- >r ( x y ) ( R: h-1 )
-        dup r@ > if drop r@ then    ( x y>h-1?h-1:y ) ( R: h-1 )
-        rdrop                   ( x y )
-    else
-        swap                    ( x y )
-    endif
-    \ set cursor position
-    2dup                    ( x y x y )
-    1+ swap 1+ swap         ( x y x+1 y+1 )
-    b-set-cursor            ( x y )
-    at-xy ;
+\ --- WINDOW CONTROL --------------------------------------------------------------------
 
 : b-init-window ( -- )
     1 1 b-set-cursor
@@ -804,6 +828,8 @@ variable b-quit-flag
     \ check if window update is necessary, and do so if so
     b-update-window-size? if b-update-window-size then ;
 
+\ --- CONSOLE SERVICE ROUTINES ----------------------------------------------------------
+
 : b-locate ( x y -- )
     \ set cursor to specified screen position (starting from 1,1)
     b-locate-nac ;
@@ -811,6 +837,133 @@ variable b-quit-flag
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
     b-clear 1 1 b-locate b-clear-buffer ;
+
+: b-scroll-up ( -- )
+    b-CSI ." S" b-scroll-buffer-up ;
+
+: b-scroll-down ( -- )
+    b-CSI ." T" b-scroll-buffer-down ;
+
+: b-anticipate-cursor-up-event ( x y -- x y )
+    \ recompute anticipated cursor position as if cursor up had been pressed
+    \ sub 1 from y 
+    1- 
+    \ check if window height has been exceeded
+    dup 0<= if
+        \ yes: add 1 to y
+        1+
+        \ scroll down
+        b-scroll-down   
+    endif ;
+
+: b-anticipate-cursor-up ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ recompute anticipated cursor position as if cursor up had been pressed
+    b-anticipate-cursor-up-event ;
+
+: b-anticipate-cursor-down-event ( x y -- x y )
+    \ recompute anticipated cursor position as if cursor down had been pressed
+    \ add 1 to y 
+    1+ 
+    \ check if window height has been exceeded
+    dup b-window-height @ > if
+        \ yes: sub 1 from y
+        1-
+        \ scroll up
+        b-scroll-up 
+    endif ;
+
+: b-anticipate-cursor-down ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ recompute anticipated cursor position as if cursor down had been pressed
+    b-anticipate-cursor-down-event ;
+
+: b-anticipate-return-event ( x y -- x y )
+    \ recompute anticipated cursor position as if return had been pressed
+    \ reset x to 1
+    swap drop 1 swap
+    \ move anticipated cursor down
+    b-anticipate-cursor-down-event ;
+
+: b-anticipate-return ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ recompute anticipated cursor position as if return had been pressed
+    b-anticipate-return-event ;
+
+: b-anticipate-next-char ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ add 1 to x and check if window width has been exceeded
+    over 1+ b-window-width @ > if
+        \ yes: recompute anticipated cursor position as if return had been pressed
+        b-anticipate-return-event
+    else
+        \ no: add 1 to x for real
+        swap 1+ swap
+    endif ;
+
+: b-output-return ( -- )
+    \ output a newline
+    \ get anticipated cursor position
+    b-anticipate-return ( -- x y )
+    \ locate to anticipated position
+    b-locate ;
+
+: b-anticipate-cellar-event ( x y -- x y )
+    \ recompute anticipated cursor position as if cursor moved backwards
+    \ to the right hand edge of the screen
+    \ reset x to b-window-width
+    swap drop b-window-width @ swap
+    \ move anticipated cursor up
+    b-anticipate-cursor-up-event ;
+
+: b-anticipate-cellar ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ recompute anticipated cursor position as if cursor appeared at eol
+    b-anticipate-cellar-event ;
+
+: b-anticipate-prev-char ( -- x y )
+    \ get remembered cursor position
+    b-cursor-x @ b-cursor-y @
+    \ sub 1 from x and check if window width has been exceeded
+    over 1- 0<= if
+        \ yes: recompute anticipated cursor position as if cursor appeared at eol
+        b-anticipate-cellar-event
+    else
+        \ no: sub 1 from x for real
+        swap 1- swap
+    endif ;
+
+: b-emit ( chr -- )
+    \ emit character and store into window buffer
+    \ remove unwanted bits and set attribute bits
+    255 and b-attribute @ or
+    \ ( chr )
+    dup
+    \ ( chr chr ) compute buffer position
+    b-cursor-address
+    \ ( chr chr addr ) store character info into cell
+    ! 
+    \ compute anticipated cursor position
+    b-anticipate-next-char
+    \ ( chr x y ) output character for real
+    2 pick b-cell-emit
+    \ ( chr x y ) locate to anticipated position
+    b-locate
+    \ ( chr )
+    drop ;
+
+: b-type ( addr u -- )
+    \ output 'u' characters from address 'addr'
+    0 u+do dup c@ b-emit char+ loop drop ;
+
+\ === KEYBOARD HANDLERS =================================================================
+
+\ --- EDITING KEYS ----------------------------------------------------------------------
 
 : b-handle-page-up ( -- )
     ;
@@ -829,6 +982,8 @@ variable b-quit-flag
 
 : b-handle-delete ( -- )
     ;
+
+\ --- FUNCTION KEYS ---------------------------------------------------------------------
 
 : b-handle-f1 ( -- )
     ;
@@ -876,32 +1031,12 @@ variable b-quit-flag
     \ set quit flag
     bc-true b-quit-flag ! ;
 
+\ --- ESCAPE KEY ------------------------------------------------------------------------
+
 : b-handle-escape ( -- )
     bye ;
 
-: b-scroll-up ( -- )
-    b-CSI ." S" b-scroll-buffer-up ;
-
-: b-scroll-down ( -- )
-    b-CSI ." T" b-scroll-buffer-down ;
-
-: b-anticipate-cursor-up-event ( x y -- x y )
-    \ recompute anticipated cursor position as if cursor up had been pressed
-    \ sub 1 from y 
-    1- 
-    \ check if window height has been exceeded
-    dup 0<= if
-        \ yes: add 1 to y
-        1+
-        \ scroll down
-        b-scroll-down   
-    endif ;
-
-: b-anticipate-cursor-up ( -- x y )
-    \ get remembered cursor position
-    b-cursor-x @ b-cursor-y @
-    \ recompute anticipated cursor position as if cursor up had been pressed
-    b-anticipate-cursor-up-event ;
+\ --- CURSOR KEYS -----------------------------------------------------------------------
 
 : b-handle-cursor-up ( -- )
     b-unmark-line
@@ -910,55 +1045,12 @@ variable b-quit-flag
     \ locate to anticipated position
     b-locate b-mark-line ;
 
-: b-anticipate-cursor-down-event ( x y -- x y )
-    \ recompute anticipated cursor position as if cursor down had been pressed
-    \ add 1 to y 
-    1+ 
-    \ check if window height has been exceeded
-    dup b-window-height @ > if
-        \ yes: sub 1 from y
-        1-
-        \ scroll up
-        b-scroll-up 
-    endif ;
-
-: b-anticipate-cursor-down ( -- x y )
-    \ get remembered cursor position
-    b-cursor-x @ b-cursor-y @
-    \ recompute anticipated cursor position as if cursor down had been pressed
-    b-anticipate-cursor-down-event ;
-
 : b-handle-cursor-down ( -- )
     b-unmark-line
     \ get anticipated cursor position
     b-anticipate-cursor-down ( -- x y )
     \ locate to anticipated position
     b-locate b-mark-line ;
-
-: b-anticipate-return-event ( x y -- x y )
-    \ recompute anticipated cursor position as if return had been pressed
-    \ reset x to 1
-    swap drop 1 swap
-    \ move anticipated cursor down
-    b-anticipate-cursor-down-event ;
-
-: b-anticipate-return ( -- x y )
-    \ get remembered cursor position
-    b-cursor-x @ b-cursor-y @
-    \ recompute anticipated cursor position as if return had been pressed
-    b-anticipate-return-event ;
-
-: b-anticipate-next-char ( -- x y )
-    \ get remembered cursor position
-    b-cursor-x @ b-cursor-y @
-    \ add 1 to x and check if window width has been exceeded
-    over 1+ b-window-width @ > if
-        \ yes: recompute anticipated cursor position as if return had been pressed
-        b-anticipate-return-event
-    else
-        \ no: add 1 to x for real
-        swap 1+ swap
-    endif ;
 
 : b-handle-cursor-right ( -- )
     \ cursor right has been pressed
@@ -968,44 +1060,11 @@ variable b-quit-flag
     \ locate to anticipated position
     b-locate b-mark-line ;
 
-: b-output-return ( -- )
-    \ output a newline
-    \ get anticipated cursor position
-    b-anticipate-return ( -- x y )
-    \ locate to anticipated position
-    b-locate ;
-
 : b-handle-return ( -- )
     \ return key has been pressed
     b-unmark-line
     b-output-return 
     b-mark-line ;
-
-: b-anticipate-cellar-event ( x y -- x y )
-    \ recompute anticipated cursor position as if cursor moved backwards
-    \ to the right hand edge of the screen
-    \ reset x to b-window-width
-    swap drop b-window-width @ swap
-    \ move anticipated cursor up
-    b-anticipate-cursor-up-event ;
-
-: b-anticipate-cellar ( -- x y )
-    \ get remembered cursor position
-    b-cursor-x @ b-cursor-y @
-    \ recompute anticipated cursor position as if cursor appeared at eol
-    b-anticipate-cellar-event ;
-
-: b-anticipate-prev-char ( -- x y )
-    \ get remembered cursor position
-    b-cursor-x @ b-cursor-y @
-    \ sub 1 from x and check if window width has been exceeded
-    over 1- 0<= if
-        \ yes: recompute anticipated cursor position as if cursor appeared at eol
-        b-anticipate-cellar-event
-    else
-        \ no: sub 1 from x for real
-        swap 1- swap
-    endif ;
 
 : b-handle-cursor-left ( -- )
     \ cursor right has been pressed
@@ -1023,32 +1082,11 @@ variable b-quit-flag
     \ locate to anticipated position
     2dup b-locate 
     \ rub out character under cursor
-    32 emit
+    32 b-emit
     \ locate to anticipated position again
     b-locate b-mark-line ;
 
-: b-emit ( chr -- )
-    \ emit character and store into window buffer
-    \ remove unwanted bits and set attribute bits
-    255 and b-attribute @ or
-    \ ( chr )
-    dup
-    \ ( chr chr ) compute buffer position
-    b-cursor-address
-    \ ( chr chr addr ) store character info into cell
-    ! 
-    \ compute anticipated cursor position
-    b-anticipate-next-char
-    \ ( chr x y ) output character for real
-    2 pick b-cell-emit
-    \ ( chr x y ) locate to anticipated position
-    b-locate
-    \ ( chr )
-    drop ;
-
-: b-type ( addr u -- )
-    \ output 'u' characters from address 'addr'
-    0 u+do dup c@ b-emit char+ loop drop ;
+\ --- MAIN INPUT HANDLER ----------------------------------------------------------------
 
 : b-input-handler ( -- )
     key? if
@@ -1105,11 +1143,15 @@ variable b-quit-flag
         then then
     then ;
 
+\ --- SCREEN EDITOR MAIN ----------------------------------------------------------------
+
 : b-screen-editor ( -- )
     \ BASIC screen editor
     begin 
         b-input-handler 
     b-quit-flag @ until ;
+
+\ === MAIN PROGRAM ======================================================================
 
 bc-def-mode bc-def-bgcol bc-def-fgcol b-make-attr dup b-attribute ! b-default-attribute !
 bc-mark-mode bc-mark-bgcol bc-mark-fgcol b-make-attr b-mark-attribute ! 0 b-mark-flag !
