@@ -15,6 +15,9 @@
 11 constant bc-bg-vshf
 14 constant bc-mode-vshf
 0xe000 constant bc-mode-mask
+1 constant bc-def-mode
+4 constant bc-def-bgcol
+3 constant bc-def-fgcol
 
 variable b-window-width
 variable b-window-height
@@ -84,8 +87,6 @@ variable b-quit-flag
     b-split-attr    ( mode bgcol fgcol )
     rot 1+ -rot
     b-make-attr ;   ( attr )
-
-1 4 3 b-make-attr dup b-attribute ! b-default-attribute !
 
 : b-NEWLINE
     \ output newline character(s)
@@ -412,8 +413,6 @@ variable b-quit-flag
         b-window-resize-buffer
     endif ;
 
-b-update-window-size
-
 : b-update-window-size? ( -- t )
     \ check if window dimensions have changed
     form b-window-width <> b-window-height <> or ;
@@ -593,9 +592,29 @@ b-update-window-size
     b-xy-address    ( endaddr begaddr )
     swap ;          ( begaddr endaddr )
 
+: b-line-init-addr  ( begaddr endaddr -- )
+    \ initialize line on-screen (in buffer) by filling in gaps (0 bytes)
+    \ (doesn't change cell attributes)
+    swap                ( endaddr begaddr )
+    begin               ( endaddr begaddr )
+        dup @           ( endaddr begaddr val )
+        dup 255 and 0=  ( endaddr begaddr val zero )
+        if              ( endaddr begaddr val )
+            32 or       ( endaddr begaddr val )
+            over !      ( endaddr begaddr )
+        else            ( endaddr begaddr val )
+            drop        ( endaddr begaddr )
+        endif
+        cell+           ( endaddr begaddr )
+        2dup <
+    until               ( endaddr begaddr )
+    2drop ;
+
 : b-line-init       ( y -- )
     \ initialize line on-screen (in buffer) by filling in gaps (0 bytes)
-    ;
+    \ (doesn't change cell attributes)
+    b-line-extent-addr ( begaddr endaddr )
+    b-line-init-addr ;
 
 : b-mark-line ( -- )
     \ mark current line for editing
@@ -829,16 +848,6 @@ b-update-window-size
     \ output 'u' characters from address 'addr'
     0 u+do dup c@ b-emit char+ loop drop ;
 
-b-cls
-s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
-b-handle-return
-s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
-b-handle-return
-s" Written for use with GNU Forth (aka GForth)." b-type
-b-handle-return
-b-handle-return
-b-handle-refresh
-
 : b-input-handler ( -- )
     key? if
         ekey ekey>char if ( c ) 
@@ -903,5 +912,16 @@ b-handle-refresh
         b-input-handler 
     b-quit-flag @ until ;
 
+bc-def-mode bc-def-bgcol bc-def-fgcol b-make-attr dup b-attribute ! b-default-attribute !
+b-update-window-size
+b-cls
+s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
+b-handle-return
+s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
+b-handle-return
+s" Written for use with GNU Forth (aka GForth)." b-type
+b-handle-return
+b-handle-return
+b-handle-refresh
 b-screen-editor
 
