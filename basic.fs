@@ -542,27 +542,39 @@ b-update-window-size
     dup b-up-extent swap    ( ybeg y )
     b-down-extent           ( ybeg yend ) ;
 
-: b-right-extent ( y -- x )
-    \ get rightmost character position in current line at specified Y position
+: b-y-line-width ( y -- w )
+    \ get rightmost character position in current line at specified Y position + 1
     \ by counting backwards from the rightmost column 
     \ compute cell address of first column in current line
     dup b-bol-addr swap         ( boladdr y )
     \ compute cell address of last  column in current line
     b-eol-addr                  ( boladdr eoladdr )
     begin       ( boladdr eoladdr )
-        \ check if current cell contains zero (if not, it's the last character of the line)
+        \ check if current cell contains zero 
+        \ if not, the current character is the last character of the line
         dup @ 255 and 0=        ( boladdr eoladdr tzero )
-        \ decrement position
-        -rot 1-                 ( tzero boladdr eoladdr )
-        \ see if it's off-screen
-        2dup > >r rot r>        ( boladdr eoladdr tzero offscr ) 
-        \ if one of the conditions is fullfilled, stop loop
-        or                      ( boladdr eoladdr oneof )
+        \ compute next cell address
+        if                      ( boladdr eoladdr )
+            \ the current cell was zero, decrement character position
+            cell -              ( boladdr eoladdr )
+            \ check if eoladdr is now < boladdr
+            2dup >              ( boladdr eoladdr stop )
+        else                    ( boladdr eoladdr )
+            \ stop at non-zero
+            -1                  ( boladdr eoladdr stop )
+        endif
     until                       ( boladdr eoladdr )
-    \ if position was offscreen, correct it
-    2dup > if 1+ then           ( boladdr eoladdr )
-    \ convert to X position
-    swap - ;
+    \ increment position
+    cell+
+    \ convert to X position, which is the width of the line
+    swap - cell / ;             ( width )
+
+: b-right-extent ( y -- x )
+    \ get last character position in line, which is one less than the width
+    b-y-line-width
+    \ if zero (i.e. if the line has zero width), return that,
+    \ otherwise decrement the width by one to get the rightmost valid position
+    dup 0<> if 1- then ;
 
 : b-line-extent ( y -- xbeg ybeg xend yend )
     \ get line extent backwards and forward of the specified Y position
