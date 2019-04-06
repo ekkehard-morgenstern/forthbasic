@@ -19,21 +19,53 @@
 4 constant bc-def-bgcol
 3 constant bc-def-fgcol
 
+\ window dimensions, in character cells
 variable b-window-width
 variable b-window-height
 variable b-window-size
+
+\ window buffer, composed of cells
+\ each cell contains 16 bit of information
+\ .
+\       +------------+----------+
+\       | mm bbb fff | cccccccc |
+\       +------------+----------+
+\ .
+\       m - mode value:
+\               0 - regular
+\               1 - bold or bright
+\               2 - blink (if supported)
+\               3 - reverse
+\       b - background color 0..7
+\       f - foreground color 0..7
+\       c - character value (ASCII 7 bit + bit 8)
+\           (UTF-8 not supported)
+
 variable b-window-buffer
+
+\ text cursor position (1,1) = upper left corner
 variable b-cursor-x
 variable b-cursor-y
+
+\ text colors and attribute: current (for new characters typed)
 variable b-attribute
+
+\ text colors and attribute: default (used for empty cells)
 variable b-default-attribute
+
+\ text colors and attribute: backup (during screen refresh)
 variable b-attribute-backup
 
+\ text colors and attribute: user-defined (backup during high-level refresh)
+variable b-attribute-user
+
+\ window dimensions and buffer backup during window resizing
 variable b-old-window-width
 variable b-old-window-height
 variable b-old-window-size
 variable b-old-window-buffer
 
+\ quit flag for screen editor (if set, drops back into FORTH)
 variable b-quit-flag
 
 : >b-attr-fg-col ( col -- attr )
