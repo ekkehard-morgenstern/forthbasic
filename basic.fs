@@ -715,9 +715,9 @@ variable b-quit-flag
     \ apply hilight color attribute to line
     2dup b-line-mark-addr   ( begaddr endaddr )
     \ refresh line
-    b-refresh-line-addr
+    b-refresh-line-addr     ( y cnt )
     \ update marking variables
-    b-mark-cnt ! b-mark-y ! -1 b-mark-flag ! ;
+    b-mark-cnt ! b-mark-y ! -1 b-mark-flag ! .s ;
 
 : b-unmark-line ( -- )
     \ unmark line if one was marked
@@ -1043,7 +1043,7 @@ variable b-quit-flag
 : b-input-handler ( -- )
     key? if
         ekey ekey>char if ( c ) 
-            b-auto-update-window
+            b-auto-update-window 
             case
                 12      of b-handle-refresh endof
                 13      of b-handle-return endof
@@ -1052,12 +1052,7 @@ variable b-quit-flag
                 ( c ) \ default handling:
                 dup 32 < over 126 > or if ( c )
                 else ( c )
-                    \ compute anticipated cursor position
-                    b-anticipate-next-char ( -- x y )
-                    \ output character
-                    2 pick b-emit
-                    \ locate to anticipated position
-                    b-locate
+                    dup b-emit
                 endif
             endcase
 
