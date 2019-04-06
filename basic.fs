@@ -18,6 +18,9 @@
 1 constant bc-def-mode
 4 constant bc-def-bgcol
 3 constant bc-def-fgcol
+1 constant bc-mark-mode
+5 constant bc-mark-bgcol
+3 constant bc-mark-fgcol
 
 \ window dimensions, in character cells
 variable b-window-width
@@ -47,11 +50,21 @@ variable b-window-buffer
 variable b-cursor-x
 variable b-cursor-y
 
+\ line mark indicator
+variable b-mark-flag
+
+\ line mark Y position and count
+variable b-mark-y
+variable b-mark-cnt
+
 \ text colors and attribute: current (for new characters typed)
 variable b-attribute
 
 \ text colors and attribute: default (used for empty cells)
 variable b-default-attribute
+
+\ text colors and attribute: mark (used for marking cells)
+variable b-mark-attribute
 
 \ text colors and attribute: backup (during screen refresh)
 variable b-attribute-backup
@@ -228,7 +241,14 @@ variable b-quit-flag
 : b-clear ( -- )
     \ clear screen and set cursor to top left screen position (raw)
     b-ESC ." c" 
+    \ after that, emit current attribute
     b-attribute @ b-ansi-color ;
+
+: b-clear-def ( -- )
+    \ clear screen and set cursor to top left screen position (raw)
+    b-ESC ." c" 
+    \ after that, emit default attribute
+    b-default-attribute @ b-ansi-color ;
 
 : b-output-attr ( attr -- )
     \ output attribute
@@ -449,14 +469,25 @@ variable b-quit-flag
     \ check if window dimensions have changed
     form b-window-width <> b-window-height <> or ;
 
-: b-handle-refresh ( -- )
+: b-xy-address  ( x y -- addr )
+    \ compute buffer address for X/Y position
+    b-window-buffer @ -rot      ( bufaddr x y )
+    b-window-width @            ( bufaddr x y w )
+    b-cell-addr ;               ( celladdr )
+
+: b-refresh-lines ( y cnt -- )
     \ refresh entire screen
     b-attribute @ b-attribute-backup !      \ backup current attribute
     b-default-attribute @ b-attribute !     \ reset attribute to default
-    \ clear screen, turn off auto-wrap
-    b-clear b-reset-autowrap
-    \ iterate over lines
-    b-window-buffer @ b-window-height @ 0 +do 
+    \ turn off auto-wrap
+    b-reset-autowrap
+    \ iterate over lines ( y cnt )
+    over 0 swap                 ( y cnt 0 y )
+    b-xy-address                ( y cnt scraddr )
+    -rot                        ( scraddr y cnt )
+    over +                      ( scraddr y y+cnt )
+    swap                        ( scraddr y+cnt y )
+    +do 
         \ ( addr ) set cursor position to beginning of current line
         0 i at-xy
         \ ( addr ) iterate over line, output chars
@@ -467,6 +498,12 @@ variable b-quit-flag
     b-cursor-x @ 1- b-cursor-y @ 1- at-xy b-set-autowrap 
     \ change attribute back to what it was before
     b-attribute-backup @ dup b-attribute ! b-ansi-color ;
+
+: b-handle-refresh ( -- )
+    b-clear-def
+    \ refresh entire screen
+    0 b-window-height @
+    b-refresh-lines ;
 
 : b-auto-update-window ( -- )
     \ check if window update is necessary, and do so if so
@@ -501,12 +538,6 @@ variable b-quit-flag
 : b-cls ( -- )
     \ clear screen and set cursor to top left screen position
     b-clear 1 1 b-locate b-clear-buffer ;
-
-: b-xy-address  ( x y -- addr )
-    \ compute buffer address for X/Y position
-    b-window-buffer @ -rot      ( bufaddr x y )
-    b-window-width @            ( bufaddr x y w )
-    b-cell-addr ;               ( celladdr )
 
 : b-cursor-address ( -- addr )
     \ compute buffer address for cursor position
@@ -624,6 +655,18 @@ variable b-quit-flag
     b-xy-address    ( endaddr begaddr )
     swap ;          ( begaddr endaddr )
 
+: b-bufaddr-to-y    ( bufaddr -- y )
+    b-window-buffer @ - ( bufoffs )
+    cell /              ( bufcell )
+    b-window-width  @ / ( y ) ;
+
+: b-bufaddr-to-poscnt   ( begaddr endaddr -- y cnt )
+    swap                ( endaddr begaddr )
+    b-bufaddr-to-y      ( endaddr begY )
+    swap                ( y endaddr )
+    b-bufaddr-to-y 1+   ( y endY+1 )
+    over - ;            ( y cnt )
+
 : b-line-init-addr  ( begaddr endaddr -- )
     \ initialize line on-screen (in buffer) by filling in gaps (0 bytes)
     \ (doesn't change cell attributes)
@@ -642,6 +685,37 @@ variable b-quit-flag
     until               ( endaddr begaddr )
     2drop ;
 
+: b-line-apply-attr-addr    ( attr begaddr endaddr -- )
+    \ change cell attributes at specified screen buffer address range
+    swap                ( attr endaddr begaddr )
+    begin               ( attr endaddr begaddr )
+        rot             ( endaddr begaddr attr )
+        >r              ( endaddr begaddr ) ( R: attr )
+        \ fetch cell contents
+        dup @           ( endaddr begaddr val ) ( R: attr )
+        \ mask off non-char bits
+        255 and         ( endaddr begaddr val ) ( R: attr )
+        \ apply attribute
+        r@ or           ( endaddr begaddr val ) ( R: attr )
+        over !          ( endaddr begaddr ) ( R: attr )
+        r>              ( endaddr begaddr attr )
+        -rot            ( attr endaddr begaddr )
+        \ go to next cell
+        cell+           ( attr endaddr begaddr )
+        2dup <
+    until               ( attr endaddr begaddr )
+    2drop drop ;
+
+: b-line-mark-addr  ( begaddr endaddr -- )
+    b-mark-attribute @  ( begaddr endaddr attr )
+    -rot                ( attr begaddr endaddr )
+    b-line-apply-attr-addr ;
+
+: b-line-unmark-addr  ( begaddr endaddr -- )
+    b-default-attribute @   ( begaddr endaddr attr )
+    -rot                    ( attr begaddr endaddr )
+    b-line-apply-attr-addr ;
+
 : b-line-init       ( y -- )
     \ initialize line on-screen (in buffer) by filling in gaps (0 bytes)
     \ (doesn't change cell attributes)
@@ -650,8 +724,19 @@ variable b-quit-flag
 
 : b-mark-line ( -- )
     \ mark current line for editing
-    b-cursor-y @ 1-     ( y )
-    ;
+    b-cursor-y @ 1-         ( y )
+    \ get line extent as buffer addresses
+    b-line-extent-addr      ( begaddr endaddr )
+    \ set zero-bytes to spaces within line
+    2dup b-line-init-addr   ( begaddr endaddr )
+    \ apply hilight color attribute to line
+    2dup b-line-mark-addr   ( begaddr endaddr )
+    \ convert buffer addresses to pos/cnt
+    b-bufaddr-to-poscnt     ( y cnt )
+    \ refresh lines on-screen
+    2dup b-refresh-lines    ( y cnt )
+    \ update marking variables
+    b-mark-cnt ! b-mark-y ! -1 b-mark-flag ! ;
 
 : b-handle-page-up ( -- )
     ;
@@ -945,6 +1030,7 @@ variable b-quit-flag
     b-quit-flag @ until ;
 
 bc-def-mode bc-def-bgcol bc-def-fgcol b-make-attr dup b-attribute ! b-default-attribute !
+bc-mark-mode bc-mark-bgcol bc-mark-fgcol b-make-attr b-mark-attribute ! 0 b-mark-flag !
 b-update-window-size
 b-cls
 s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
