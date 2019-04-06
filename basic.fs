@@ -497,14 +497,14 @@ b-update-window-size
     \ or the line that does have a zero cell in its rightmost column
     begin               ( y )
         \ compute cell address of last column in current line
-        dup b-eol-addr .s       ( y celladdr )
-        \ check if it contains zero
-        @ 255 and 0=                    ( y zero )
-        \ check if next line would be off-screen
-        over 1+ b-window-height @ >=    ( y zero offscr )
-        \ stop loop if any of these conditions is met
-        or while                        ( y )
-        \ nope, can increment position and iterate loop
+        dup b-eol-addr          ( y celladdr )
+        \ check if it does not contain zero
+        @ 255 and 0<>                   ( y nonzero )
+        \ check if next line would be on-screen
+        over 1+ b-window-height @ <     ( y nonzero onscreen )
+        \ continue loop if both of these conditions is met
+        and while                       ( y )
+        \ yes, can increment position and iterate loop
         1+
     repeat ;            ( yend )
 
@@ -513,17 +513,29 @@ b-update-window-size
     \ the beginning address starts at the current cursor position and ends at the beginning of
     \ the buffer or the line that does have a zero cell in its rightmost column
     begin               ( y )
-        \ compute cell address of last column in current line
-        dup b-eol-addr              ( y celladdr )
-        \ check if it contains zero
-        @ 255 and 0=                ( y zero )
-        \ check if previous line would be off-screen
-        over 1- 0<                  ( y zero offscr )
-        \ stop loop if any of these conditions is met
-        or while                    ( y )
-        \ nope, can decrement position and iterate loop
-        1-
-    repeat ;            ( ybeg )
+        \ compute anticipated Y position one line upward
+        dup 1- 0< if    ( y )
+            \ position would be offscreen, set loop termination flag
+            -1          ( y stop )
+        else            ( y )
+            \ position would be on-screen, decrement for real
+            1-
+            \ compute cell address of last column 
+            dup b-eol-addr              ( y celladdr )
+            \ check if it contains zero
+            @ 255 and 0=                ( y iszero )
+            \ if it is zero, that means the current Y position doesn't belong to that line
+            \ correct it by incrementing
+            if                          ( y )
+                1+                      ( y )
+                \ then put a loop termination flag
+                -1                      ( y stop )
+            else                        ( y )
+                \ otherwise, the loop can be continued
+                0                       ( y stop )
+            endif
+        endif           ( y stop )
+    until ;             ( ybeg )
 
 : b-y-line-extent ( y -- ybeg yend )
     \ get upward and downward extent of current line, in Y positions
