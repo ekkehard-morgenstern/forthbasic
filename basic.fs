@@ -1,4 +1,8 @@
 
+\ Forth BASIC v0.1 - Copyright (c) 2019 Ekkehard Morgenstern. All rights reserved. 
+\ Licensable under the GNU General Public License (GPL) v3 or higher. 
+\ Written for use with GNU Forth (aka GForth). 
+
 \ === CONSTANTS =========================================================================
 
 13 constant bc-cr
@@ -1157,7 +1161,7 @@ bc-def-mode bc-def-bgcol bc-def-fgcol b-make-attr dup b-attribute ! b-default-at
 bc-mark-mode bc-mark-bgcol bc-mark-fgcol b-make-attr b-mark-attribute ! 0 b-mark-flag !
 b-init-window
 b-cls
-s" Forth BASIC v0.1 - Copyright (c) Ekkehard Morgenstern. All rights reserved." b-type
+s" Forth BASIC v0.1 - Copyright (c) 2019 Ekkehard Morgenstern. All rights reserved." b-type
 b-output-return
 s" Licensable under the GNU General Public License (GPL) v3 or higher." b-type
 b-output-return
