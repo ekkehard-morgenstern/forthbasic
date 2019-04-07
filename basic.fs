@@ -765,13 +765,16 @@ variable b-quit-flag
     \ refresh lines on-screen
     b-refresh-lines ;
 
-: b-mark-line ( -- )
+: b-grab-line ( -- begaddr endaddr )
     \ mark current line for editing
     b-cursor-y @ 1-         ( y )
     \ get line extent as buffer addresses
     b-line-extent-addr      ( begaddr endaddr )
     \ set zero-bytes to spaces within line
-    2dup b-line-init-addr   ( begaddr endaddr )
+    2dup b-line-init-addr ; ( begaddr endaddr )
+
+: b-mark-line ( -- )
+    b-grab-line
     \ apply hilight color attribute to line
     2dup b-line-mark-addr   ( begaddr endaddr )
     \ refresh line
@@ -1017,6 +1020,15 @@ variable b-quit-flag
     40 + b-outnum           \ set background color
     ." m" ;
 
+\ === EXECUTION =========================================================================
+
+: b-execute-line ( -- )
+    b-grab-line     ( begaddr endaddr )
+    
+    2drop
+
+
+;
 
 \ === KEYBOARD HANDLERS =================================================================
 
@@ -1120,6 +1132,7 @@ variable b-quit-flag
 : b-handle-return ( -- )
     \ return key has been pressed
     b-unmark-line
+    b-execute-line
     b-output-return 
     b-mark-line ;
 
