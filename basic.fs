@@ -8,6 +8,8 @@
 13 constant bc-cr
 10 constant bc-lf
 27 constant bc-escape
+32 constant bc-space
+45 constant bc-minus
 48 constant bc-digit-lo
 57 constant bc-digit-hi
 0 constant bc-false
@@ -822,7 +824,8 @@ variable b-quit-flag
                 b-mark-line
             endif
         endif
-    endif ;
+    endif 
+    b-handle-refresh ;
 
 : b-update-window-size? ( -- t )
     \ check if window dimensions have changed
@@ -964,6 +967,56 @@ variable b-quit-flag
 : b-type ( addr u -- )
     \ output 'u' characters from address 'addr'
     0 u+do dup c@ b-emit char+ loop drop ;
+
+: b-emitnum ( n -- )
+    \ output decimal number (without surrounding blanks)
+    dup 0= if 
+        \ if the value is zero, only output that
+        drop bc-digit-lo b-emit
+    else
+        \ if the number is negative, output minus sign and negate
+        dup 0< if
+            bc-minus b-emit
+            negate
+        endif
+        \ divide number by 10
+        dup 10 /
+        \ if non-zero, recurse with that number
+        dup 0<> if
+            recurse
+        else
+            drop
+        endif
+        \ output least significant digit of decimal number
+        10 mod bc-digit-lo + b-emit
+    endif ;
+
+: b-ansi-color ( attr -- )
+    \ output ANSI color sequence for specified attributes
+    b-split-attr rot    ( bgcol fgcol mode )
+    dup case ( mode )
+        0 of  
+            \ mode 0 deactivates attributes (normal mode): keep
+        endof
+        1 of   
+            \ mode 1 puts it in bold face / high intesity : keep
+        endof
+        2 of   
+            \ mode 2 makes it blink : in ANSI, 5
+            drop 5
+        endof
+        3 of   
+            \ mode 3 reverse video : in ANSI, 7
+            drop 7
+        endof
+    endcase
+    b-CSI 
+    ( bgcol fgcol mode )
+    b-outnum b-SEMIC        \ output new mode
+    30 + b-outnum b-SEMIC   \ set foreground color
+    40 + b-outnum           \ set background color
+    ." m" ;
+
 
 \ === KEYBOARD HANDLERS =================================================================
 
