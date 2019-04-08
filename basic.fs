@@ -91,6 +91,10 @@ variable b-old-window-buffer
 \ quit flag for screen editor (if set, drops back into FORTH)
 variable b-quit-flag
 
+\ copy of line being executed, as characters. unused if 0
+variable b-line-copy
+variable b-line-size
+
 \ === ATTRIBUTE MANAGEMENT ==============================================================
 
 : >b-attr-fg-col ( col -- attr )
@@ -1022,12 +1026,50 @@ variable b-quit-flag
 
 \ === EXECUTION =========================================================================
 
+: b-alloc-line ( size -- )
+    \ allocates line copy with specified size or nothing if size was zero
+    dup dup 0> if                   ( size size )
+        chars allocate throw        ( size addr )
+    else                            ( size size )
+        2drop 0 0                   ( size addr )
+    endif
+    b-line-copy ! b-line-size ! ;
+
+: b-free-line ( -- )
+    \ frees a previously allocated line; does nothing if there was no allocated line
+    b-line-copy @ dup 0<> if
+        free
+        0 b-line-copy !
+        0 b-line-size !
+    else
+        drop
+    endif ;
+
+: b-copy-line ( begaddr endaddr -- )
+    \ copies line from screen into a dedicated buffer, as characters
+    2dup swap - 1+  ( begaddr endaddr count )
+    swap drop       ( srcaddr count )
+    \ free previous allocated line
+    b-free-line     ( srcaddr count )
+    \ allocate new line
+    dup b-alloc-line    ( srcaddr count )
+    b-line-copy @       ( srcaddr count tgtaddr )
+    -rot                ( tgtaddr srcaddr count )
+    \ copy cells to new buffer as characters
+    0 +do               ( tgtaddr srcaddr )
+        dup @           ( tgtaddr srcaddr value )
+        swap cell+      ( tgtaddr value srcaddr )
+        -rot            ( srcaddr tgtaddr value )
+        255 and         ( srcaddr tgtaddr value )
+        over c!         ( srcaddr tgtaddr )
+        char+           ( srcaddr tgtaddr )
+        swap            ( tgtaddr srcaddr )
+    loop
+    2drop ;
+
 : b-execute-line ( -- )
     b-grab-line     ( begaddr endaddr )
-    
-    2drop
-
-
+    b-copy-line
 ;
 
 \ === KEYBOARD HANDLERS =================================================================
@@ -1225,6 +1267,7 @@ variable b-quit-flag
 
 bc-def-mode bc-def-bgcol bc-def-fgcol b-make-attr dup b-attribute ! b-default-attribute !
 bc-mark-mode bc-mark-bgcol bc-mark-fgcol b-make-attr b-mark-attribute ! 0 b-mark-flag !
+0 b-line-copy ! 0 b-line-size !
 b-init-window
 b-cls
 s" Forth BASIC v0.1 - Copyright (c) 2019 Ekkehard Morgenstern. All rights reserved." b-type
