@@ -831,8 +831,8 @@ variable b-line-size
                 b-mark-line
             endif
         endif
-    endif 
-    b-handle-refresh ;
+        b-handle-refresh
+    endif ;
 
 : b-update-window-size? ( -- t )
     \ check if window dimensions have changed
@@ -1261,7 +1261,16 @@ variable b-line-size
     \ BASIC screen editor
     begin 
         b-input-handler 
-    b-quit-flag @ until ;
+    b-quit-flag @ until 
+    0 b-quit-flag ! ;
+
+: basic ( -- )
+    \ return to BASIC from FORTH
+    b-auto-update-window b-handle-refresh 
+    b-cursor-x @ b-cursor-y @ b-locate
+    b-mark-line 
+    b-screen-editor ;
+
 
 \ === MAIN PROGRAM ======================================================================
 
