@@ -15,6 +15,9 @@
 \ You should have received a copy of the GNU General Public License
 \ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 \ 
+\ Programs written in Forth BASIC do not fall under this license except 
+\ where otherwise noted.
+\ 
 \ This version has been written for use with GNU Forth (aka GForth). 
 \ Contact info: ekkehard@ekkehardmorgenstern.de
 
