@@ -46,6 +46,16 @@ $03 $23                 DIR                     show current directory
 $03 $24                 CHDIR <name>            change current directory
 $03 $26                 PUSHDIR                 push current directory
 $03 $27                 POPDIR                  pop current directory
+$03 $28                 RUN [location]          run program (from specified location)
+$03 $29                 LIST [location-range]   list program (or portions of it)
+$03 $2A                 DELETE [location-range] delete program (or portions of it)
+$03 $2B                 RENUM [params]          renumber program lines
+$03 $2C                 HELP [topic]            enter integrated manual system 
+$03 $2E                 QHELP [topic]           quick-help about topic
+$03 $2F                 WHY                     explain most recent error
+$03 $30                 CALL [sub]              call subroutine
+$03 $31                 RESULT <expr>           return result from a function
+$03 $32                 
 
 
 $05 <n> <name...>       (IDENT)                 identifier /[a-zA-Z][a-zA-Z0-9]*[$%]?[(]?/
@@ -80,9 +90,16 @@ $06 $19                 SOCKETV4                return new IPv4 socket
 $06 $1A                 SOCKETV6                return new IPv6 socket
 $06 $1B                 ACCEPT(                 accept connect on specified socket, return connection socket
 $06 $1C                 CWD$                    current working directory
+$06 $1D                 
 
 $07 <n> <text...>       (STRLIT)                string literal "..."
 $08 <val.lo> <val.hi>   (UINT16)                line number
+
+keywords that do not constitute a command if specified alone:
+$0B $00                 SUB                     specify subroutine (SUB ... END SUB)
+$0B $01                 FUNC                    specify function (FUNC ... END FUNC)
+$0B $02                 OPTION
+
 
 $0C <n> <name...>       (LABEL)                 label
 
