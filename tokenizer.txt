@@ -8,7 +8,7 @@ $02 <val.lo> <val.hi>   (INT16)                 double byte integer
 
 built-in single-keyword commands 
 $03 $00                 NOP                     no operation
-$03 $01                 END                     end program
+$03 $01                 END [...]               end program or specified block
 $03 $02                 AGAIN [var | OUTER n]   redo innermost loop body or specified outer loop body
 $03 $03                 LEAVE [var | OUTER n]   leave innermost loop or specified outer loop
 $03 $04                 BREAK                   break into debugger
@@ -47,7 +47,7 @@ $03 $24                 CHDIR <name>            change current directory
 $03 $26                 PUSHDIR                 push current directory
 $03 $27                 POPDIR                  pop current directory
 $03 $28                 RUN [location]          run program (from specified location)
-$03 $29                 LIST [location-range]   list program (or portions of it)
+$03 $29                 LIST [location-range]   list program (or portions of it) or define list variables (with DEF)
 $03 $2A                 DELETE [location-range] delete program (or portions of it)
 $03 $2B                 RENUM [params]          renumber program lines
 $03 $2C                 HELP [topic]            enter integrated manual system 
@@ -55,7 +55,14 @@ $03 $2E                 QHELP [topic]           quick-help about topic
 $03 $2F                 WHY                     explain most recent error
 $03 $30                 CALL [sub]              call subroutine
 $03 $31                 RESULT <expr>           return result from a function
-$03 $32                 
+$03 $32                 OPTION [params]         specify interpreter option
+$03 $33                 DEF ...                 define (small functions, variable type, etc.)
+$03 $34                 DIM [params]            dimension arrays
+$03 $35                 NEXT [var-list]         end of FOR ... NEXT body/bodies
+$03 $36                 CLR                     clear variables
+$03 $37                 RANDOMIZE [seed]        randomize the random number generator
+$03 $38                 DEG                     angles are in degrees
+$03 $39                 RAD                     angles are in radians
 
 
 $05 <n> <name...>       (IDENT)                 identifier /[a-zA-Z][a-zA-Z0-9]*[$%]?[(]?/
@@ -90,7 +97,22 @@ $06 $19                 SOCKETV4                return new IPv4 socket
 $06 $1A                 SOCKETV6                return new IPv6 socket
 $06 $1B                 ACCEPT(                 accept connect on specified socket, return connection socket
 $06 $1C                 CWD$                    current working directory
-$06 $1D                 
+$06 $1D                 RND(                    return random number between [0..arg[ 
+$06 $1E                 SIN(                    compute sine
+$06 $1F                 LN(                     compute natural logarithm
+$06 $20                 LOG(                    computer base 10 logarithm
+$06 $21                 LOG2(                   computer base 2 logarithm
+$06 $22                 COS(                    compute cosine
+$06 $23                 TAN(                    compute tangens
+$06 $24                 COT(                    compute cotangens
+$06 $25                 ATN(                    compute arcus tangens
+$06 $26                 HEAD(                   return head of list
+$06 $27                 TAIL(                   return tail of list
+$06 $28                 TRUE                    special value "TRUE" (-1 INT)
+$06 $29                 FALSE                   special value "FALSE" (0 INT)
+$06 $2A                 NIL                     special value "NIL" (0 PTR)
+$06 $2B                 NEXT(                   return next node in list
+$06 $2C                 PREV(                   return previous node in list
 
 $07 <n> <text...>       (STRLIT)                string literal "..."
 $08 <val.lo> <val.hi>   (UINT16)                line number
@@ -98,7 +120,15 @@ $08 <val.lo> <val.hi>   (UINT16)                line number
 keywords that do not constitute a command if specified alone:
 $0B $00                 SUB                     specify subroutine (SUB ... END SUB)
 $0B $01                 FUNC                    specify function (FUNC ... END FUNC)
-$0B $02                 OPTION
+$0B $02                 BASE <n>                option BASE (0/1)
+$0B $03                 BYTEORDER <name>        option BYTEORDER ("LE","BE")
+$0B $04                 INT <range | varlist>   define INT variable range
+$0B $05                 FLOAT <range | varlist> define FLOAT variable range, specify FLOAT option
+$0B $06                 FIXED <n>               specify FIXED option 
+$0B $07                 FN ...                  define small function
+$0B $08                 DYNAMIC                 dimension an array as dynamic
+$0B $09                 PTR <range | varlist>   define PTR variables
+$0B $0A                 
 
 
 $0C <n> <name...>       (LABEL)                 label
@@ -107,10 +137,22 @@ misc operators:
 $0F $00                 <=                      less or equal
 $0F $01                 >=                      greater or equal
 $0F $02                 <>                      not equal
-$0F $03
+$0F $03                 AND                     binary or logical AND
+$0F $04                 OR                      binary or logical OR
+$0F $05                 XOR                     binary or logical XOR
+$0F $06                 NOT                     binary or logical NOT
+$0F $07                 NAND                    binary or logical NAND
+$0F $08                 NOR                     binary or logical NOR
+$0F $09                 XNOR                    binary or logical XNOR
+$0F $10                 EQV                     binary or logical EQV
+$0F $11                 NEQV                    binary or logical NEQV
+$0F $12                 SHL                     binary shift left
+$0F $13                 SHR                     binary shift right
 
 verbatim ASCII tokens:
 
+$20                     (space)                 (space)
+$21                     !                       pling operator
 $27 <n> <text...>       '                       REM
 $28                     (                       left parenthesis
 $29                     )                       right parenthesis
