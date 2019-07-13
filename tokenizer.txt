@@ -63,6 +63,12 @@ $03 $36                 CLR                     clear variables
 $03 $37                 RANDOMIZE [seed]        randomize the random number generator
 $03 $38                 DEG                     angles are in degrees
 $03 $39                 RAD                     angles are in radians
+$03 $3A                 WHILE <cond>            begin a WHILE ... WEND loop or terminate a REPEAT ... WHILE loop body
+$03 $3B                 WEND                    terminate a WHILE loop body
+$03 $3C                 REPEAT                  begin a REPEAT ... UNTIL/WHILE loop
+$03 $3D                 UNTIL <cond>            terminate a REPEAT ... UNTIL/WHILE loop body
+$03 $3E                 FOREVER                 begin an endless loop (body terminated by NEXT)
+$03 $3F                 FOREACH <spec>          begin a foreach loop (var IN list, body terminated by NEXT)
 
 
 $05 <n> <name...>       (IDENT)                 identifier /[a-zA-Z][a-zA-Z0-9]*[$%]?[(]?/
@@ -113,6 +119,7 @@ $06 $29                 FALSE                   special value "FALSE" (0 INT)
 $06 $2A                 NIL                     special value "NIL" (0 PTR)
 $06 $2B                 NEXT(                   return next node in list
 $06 $2C                 PREV(                   return previous node in list
+$06 $2D                 CELLS(                  return number of bytes occupied by specified number of memory cells
 
 $07 <n> <text...>       (STRLIT)                string literal "..."
 $08 <val.lo> <val.hi>   (UINT16)                line number
@@ -128,10 +135,15 @@ $0B $06                 FIXED <n>               specify FIXED option
 $0B $07                 FN ...                  define small function
 $0B $08                 DYNAMIC                 dimension an array as dynamic
 $0B $09                 PTR <range | varlist>   define PTR variables
-$0B $0A                 
+$0B $0A                 LINE                    introduce a LINE INPUT statement
+$0B $0B                 IN                      IN keyword used in FOREACH spec
+$0B $0C                 LABEL <name>            define a label anywhere (without trailing colon)
 
 
-$0C <n> <name...>       (LABEL)                 label
+$0C <n> <name...>       (LABEL)                 label (any user-defined name at the beginning of a
+                                                line after a line number, immediately followed by 
+                                                a colon; alternatively, a name encountered in a 
+                                                location clause without trailing colon)
 
 misc operators:
 $0F $00                 <=                      less or equal
