@@ -2,9 +2,13 @@
 Encoding of tokens
 ==================
 
+Number base for integers and floating-point / fixed-point is specified using 
+&Hxxxx (hex), &Ddddd (dec, default), &Ooooo (oct), &Bbbbb (bin).
+For floating-point bases above 10 (hex), the exponent is encoded as 'P' (instead of 'E').
+Numbers, identifiers, labels and keywords are case-insensitive.
+
+
 $00                     (EOL)                   end of line
-$01 <val>               (INT8)                  single byte integer
-$02 <val.lo> <val.hi>   (INT16)                 double byte integer
 
 built-in single-keyword commands 
 $03 $00                 NOP                     no operation
@@ -124,6 +128,35 @@ $06 $2D                 CELLS(                  return number of bytes occupied 
 $07 <n> <text...>       (STRLIT)                string literal "..."
 $08 <val.lo> <val.hi>   (UINT16)                line number
 
+$09 $20 <val>                   (INT8)          single byte integer     (bin)
+$09 $21 <val.lo> <val.hi>       (INT16)         double byte integer     (bin)
+$09 $22 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (bin)
+$09 $23 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (bin)
+$09 $2E <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (bin)
+$09 $2F <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (bin)
+
+$09 $40 <val>                   (INT8)          single byte integer     (dec) -- can also be encoded as $11 <val>
+$09 $41 <val.lo> <val.hi>       (INT16)         double byte integer     (dec)
+$09 $42 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (dec)
+$09 $43 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (dec)
+$09 $4E <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (dec)
+$09 $4F <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (dec)
+
+$09 $F0 <val>                   (INT8)          single byte integer     (oct)
+$09 $F1 <val.lo> <val.hi>       (INT16)         double byte integer     (oct)
+$09 $F2 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (oct)
+$09 $F3 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (oct)
+$09 $FE <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (oct)
+$09 $FF <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (oct)
+
+$09 $80 <val>                   (INT8)          single byte integer     (hex)
+$09 $81 <val.lo> <val.hi>       (INT16)         double byte integer     (hex)
+$09 $82 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (hex)
+$09 $83 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (hex)
+$09 $8E <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (hex)
+$09 $8F <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (hex)
+
+
 keywords that do not constitute a command if specified alone:
 $0B $00                 SUB                     specify subroutine (SUB ... END SUB)
 $0B $01                 FUNC                    specify function (FUNC ... END FUNC)
@@ -161,6 +194,11 @@ $0F $11                 NEQV                    binary or logical NEQV
 $0F $12                 SHL                     binary shift left
 $0F $13                 SHR                     binary shift right
 
+
+quick integer:
+
+$11 <val>               (INT8)                  single byte integer (dec)
+
 verbatim ASCII tokens:
 
 $20                     (space)                 (space)
@@ -182,7 +220,9 @@ $3F                     ?                       PRINT
 $5B                     [                       left bracket
 $5D                     ]                       right bracket
 $5E                     ^                       power 
+$7B                     {                       left brace
 $7C <n> <name...>       |<name>                 (language extension)
+$7D                     }                       right brace
 
 
 
