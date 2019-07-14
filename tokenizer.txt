@@ -73,6 +73,8 @@ $03 $3C                 REPEAT                  begin a REPEAT ... UNTIL/WHILE l
 $03 $3D                 UNTIL <cond>            terminate a REPEAT ... UNTIL/WHILE loop body
 $03 $3E                 FOREVER                 begin an endless loop (body terminated by NEXT)
 $03 $3F                 FOREACH <spec>          begin a foreach loop (var IN list, body terminated by NEXT)
+$03 $40                 WARRANTY                display GPL warranty info
+$03 $41                 CONDITIONS              display GPL conditions info
 
 
 $05 <n> <name...>       (IDENT)                 identifier /[a-zA-Z][a-zA-Z0-9]*[$%]?[(]?/
