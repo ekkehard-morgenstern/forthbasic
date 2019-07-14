@@ -1,0 +1,234 @@
+
+Encoding of tokens
+==================
+
+Number base for integers and floating-point / fixed-point is specified using 
+&Hxxxx (hex), &Ddddd (dec, default), &Ooooo (oct), &Bbbbb (bin).
+For floating-point bases above 10 (hex), the exponent is encoded as 'P' (instead of 'E').
+Numbers, identifiers, labels and keywords are case-insensitive.
+
+
+$00                     (EOL)                   end of line
+
+built-in single-keyword commands 
+$03 $00                 NOP                     no operation
+$03 $01                 END [...]               end program or specified block
+$03 $02                 AGAIN [var | OUTER n]   redo innermost loop body or specified outer loop body
+$03 $03                 LEAVE [var | OUTER n]   leave innermost loop or specified outer loop
+$03 $04                 BREAK                   break into debugger
+$03 $05                 ITERATE [var | OUTER n] iterate innermost loop or specified outer loop
+$03 $06                 CONT                    continue program
+$03 $07                 STOP                    stop program
+$03 $08                 RESTORE [pos]           restore DATA pointer
+$03 $09                 READ <var-list>         read from DATA
+$03 $0A                 DATA <data-list>        specify data
+$03 $0B                 FOR <loop-spec>         begin loop
+$03 $0C                 RETURN [location]       return from subroutine (to specified location)
+$03 $0D                 GOSUB <location>        call subroutine at specified location
+$03 $0E                 GOTO <location>         go to specified location
+$03 $0F                 RESET                   reset BASIC interpreter
+$03 $10                 FORTH [command]         exit BASIC interpreter, return to FORTH, or interpret specified FORTH line
+$03 $11                 SEND <params>           send data over a socket (socket, data list)
+$03 $12                 BIND <params>           bind socket to an address (socket, address, port)
+$03 $13                 BLOCK <socket>          set socket to blocking mode
+$03 $14                 NONBLOCK <socket>       set socket to non-blocking mode
+$03 $15                 LISTEN <params>         listen on socket (socket, backlog)
+$03 $16                 CONNECT <params>        connect socket to specified IP address (socket, address, port)
+$03 $17                 OPEN <params>           open specified file (file, path, mode)
+$03 $18                 CLOSE [object-list]     close specified file or socket
+$03 $19                 INPUT <params>          input data from specified stream (handle, variable-list)
+$03 $1A                 REWIND <file>           rewind specified file
+$03 $1B                 SEEK <params>           seek file to specified position (file, offset, whence)
+$03 $1C                 LET <expr>              let specified expression be true (assignment)
+$03 $1D                 IF <expr>               execute following code if expression is true
+$03 $1E                 UNLESS <expr>           execute following code if expression is false
+$03 $1F                 NEW                     erase current program
+$03 $20                 OLD                     return to previous program (if any)
+$03 $21                 SAVE <name>             save current program as specified file
+$03 $22                 LOAD <name>             load current program from specified file
+$03 $23                 DIR                     show current directory
+$03 $24                 CHDIR <name>            change current directory
+$03 $26                 PUSHDIR                 push current directory
+$03 $27                 POPDIR                  pop current directory
+$03 $28                 RUN [location]          run program (from specified location)
+$03 $29                 LIST [location-range]   list program (or portions of it) or define list variables (with DEF)
+$03 $2A                 DELETE [location-range] delete program (or portions of it)
+$03 $2B                 RENUM [params]          renumber program lines
+$03 $2C                 HELP [topic]            enter integrated manual system 
+$03 $2E                 QHELP [topic]           quick-help about topic
+$03 $2F                 WHY                     explain most recent error
+$03 $30                 CALL [sub]              call subroutine
+$03 $31                 RESULT <expr>           return result from a function
+$03 $32                 OPTION [params]         specify interpreter option
+$03 $33                 DEF ...                 define (small functions, variable type, etc.)
+$03 $34                 DIM [params]            dimension arrays
+$03 $35                 NEXT [var-list]         end of FOR ... NEXT body/bodies
+$03 $36                 CLR                     clear variables
+$03 $37                 RANDOMIZE [seed]        randomize the random number generator
+$03 $38                 DEG                     angles are in degrees
+$03 $39                 RAD                     angles are in radians
+$03 $3A                 WHILE <cond>            begin a WHILE ... WEND loop or terminate a REPEAT ... WHILE loop body
+$03 $3B                 WEND                    terminate a WHILE loop body
+$03 $3C                 REPEAT                  begin a REPEAT ... UNTIL/WHILE loop
+$03 $3D                 UNTIL <cond>            terminate a REPEAT ... UNTIL/WHILE loop body
+$03 $3E                 FOREVER                 begin an endless loop (body terminated by NEXT)
+$03 $3F                 FOREACH <spec>          begin a foreach loop (var IN list, body terminated by NEXT)
+$03 $40                 WARRANTY                display GPL warranty info
+$03 $41                 CONDITIONS              display GPL conditions info
+
+
+$05 <n> <name...>       (IDENT)                 identifier /[a-zA-Z][a-zA-Z0-9]*[$%]?[(]?/
+
+built-in functions:
+$06 $00                 ASC(                    determine ASCII value of first character of string expression
+$06 $01                 VAL(                    convert string expression to numerical value
+$06 $02                 STR$(                   convert numerical value to string expression
+$06 $03                 TI                      current time, as a numerical value
+$06 $04                 TI$                     current time, as a text string
+$06 $05                 LEFT$(                  left portion of string
+$06 $06                 RIGHT$(                 right portion of string
+$06 $07                 MID$(                   middle portion of string
+$06 $08                 POS(                    position of object (0=text cursor offset,1...=other,#1...=file[offset])
+$06 $09                 HPOS(                   H position of object (0=text cursor X pos,1...=other,#1...=file[position in line])
+$06 $0A                 VPOS(                   V position of object (0=text cursor Y pos,1...=other,#1...=file[line number])
+$06 $0B                 BIN$(                   binary representation of integer (with optional length)
+$06 $0C                 OCT$(                   octal representation of integer (with optional length)
+$06 $0D                 DEC$(                   decimal representation of integer (with optional length)
+$06 $0E                 HEX$(                   hexadecimal representation of integer (with optional length)
+$06 $0F                 CVI(                    convert binary string to integer (with optional length)
+$06 $10                 CVF(                    convert binary string to floating-point (with optional length)
+$06 $11                 MKI$(                   convert integer to binary string (with optional length)
+$06 $12                 MKF$(                   convert floating-point to binary string (with optional length)
+$06 $13                 WHERE$                  return DATA position as a string ("<label>+<n>,<index>" or "<line>,<index>")
+$06 $14                 IPV4$(                  return IPv4 address of specified (or default) interface
+$06 $15                 IPV6$(                  return IPv6 address of specified (or default) interface
+$06 $16                 HOSTNAME$               dominant name of the current host
+$06 $17                 DOMAIN$                 dominant domain name of the current host
+$06 $18                 RECV$(                  receive data from a socket
+$06 $19                 SOCKETV4                return new IPv4 socket
+$06 $1A                 SOCKETV6                return new IPv6 socket
+$06 $1B                 ACCEPT(                 accept connect on specified socket, return connection socket
+$06 $1C                 CWD$                    current working directory
+$06 $1D                 RND(                    return random number between [0..arg[ 
+$06 $1E                 SIN(                    compute sine
+$06 $1F                 LN(                     compute natural logarithm
+$06 $20                 LOG(                    computer base 10 logarithm
+$06 $21                 LOG2(                   computer base 2 logarithm
+$06 $22                 COS(                    compute cosine
+$06 $23                 TAN(                    compute tangens
+$06 $24                 COT(                    compute cotangens
+$06 $25                 ATN(                    compute arcus tangens
+$06 $26                 HEAD(                   return head of list
+$06 $27                 TAIL(                   return tail of list
+$06 $28                 TRUE                    special value "TRUE" (-1 INT)
+$06 $29                 FALSE                   special value "FALSE" (0 INT)
+$06 $2A                 NIL                     special value "NIL" (0 PTR)
+$06 $2B                 NEXT(                   return next node in list
+$06 $2C                 PREV(                   return previous node in list
+$06 $2D                 CELLS(                  return number of bytes occupied by specified number of memory cells
+
+$07 <n> <text...>       (STRLIT)                string literal "..."
+$08 <val.lo> <val.hi>   (UINT16)                line number
+
+$09 $20 <val>                   (INT8)          single byte integer     (bin)
+$09 $21 <val.lo> <val.hi>       (INT16)         double byte integer     (bin)
+$09 $22 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (bin)
+$09 $23 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (bin)
+$09 $2E <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (bin)
+$09 $2F <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (bin)
+
+$09 $40 <val>                   (INT8)          single byte integer     (dec) -- can also be encoded as $11 <val>
+$09 $41 <val.lo> <val.hi>       (INT16)         double byte integer     (dec)
+$09 $42 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (dec)
+$09 $43 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (dec)
+$09 $4E <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (dec)
+$09 $4F <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (dec)
+
+$09 $F0 <val>                   (INT8)          single byte integer     (oct)
+$09 $F1 <val.lo> <val.hi>       (INT16)         double byte integer     (oct)
+$09 $F2 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (oct)
+$09 $F3 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (oct)
+$09 $FE <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (oct)
+$09 $FF <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (oct)
+
+$09 $80 <val>                   (INT8)          single byte integer     (hex)
+$09 $81 <val.lo> <val.hi>       (INT16)         double byte integer     (hex)
+$09 $82 <val.lo> ... <val.hi>   (INT32)         four   byte integer     (hex)
+$09 $83 <val.lo> ... <val.hi>   (INT64)         eight  byte integer     (hex)
+$09 $8E <val.lo> ... <val.hi>   (INT32)         four   byte float/fixed (hex)
+$09 $8F <val.lo> ... <val.hi>   (INT64)         eight  byte float/fixed (hex)
+
+
+keywords that do not constitute a command if specified alone:
+$0B $00                 SUB                     specify subroutine (SUB ... END SUB)
+$0B $01                 FUNC                    specify function (FUNC ... END FUNC)
+$0B $02                 BASE <n>                option BASE (0/1)
+$0B $03                 BYTEORDER <name>        option BYTEORDER ("LE","BE")
+$0B $04                 INT <range | varlist>   define INT variable range
+$0B $05                 FLOAT <range | varlist> define FLOAT variable range, specify FLOAT option
+$0B $06                 FIXED <n>               specify FIXED option 
+$0B $07                 FN ...                  define small function
+$0B $08                 DYNAMIC                 dimension an array as dynamic
+$0B $09                 PTR <range | varlist>   define PTR variables
+$0B $0A                 LINE                    introduce a LINE INPUT statement
+$0B $0B                 IN                      IN keyword used in FOREACH spec
+$0B $0C                 LABEL <name>            define a label anywhere (without trailing colon)
+
+
+$0C <n> <name...>       (LABEL)                 label (any user-defined name at the beginning of a
+                                                line after a line number, immediately followed by 
+                                                a colon; alternatively, a name encountered in a 
+                                                location clause without trailing colon)
+
+misc operators:
+$0F $00                 <=                      less or equal
+$0F $01                 >=                      greater or equal
+$0F $02                 <>                      not equal
+$0F $03                 AND                     binary or logical AND
+$0F $04                 OR                      binary or logical OR
+$0F $05                 XOR                     binary or logical XOR
+$0F $06                 NOT                     binary or logical NOT
+$0F $07                 NAND                    binary or logical NAND
+$0F $08                 NOR                     binary or logical NOR
+$0F $09                 XNOR                    binary or logical XNOR
+$0F $10                 EQV                     binary or logical EQV
+$0F $11                 NEQV                    binary or logical NEQV
+$0F $12                 SHL                     binary shift left
+$0F $13                 SHR                     binary shift right
+
+
+quick integer:
+
+$11 <val>               (INT8)                  single byte integer (dec)
+
+verbatim ASCII tokens:
+
+$20                     (space)                 (space)
+$21                     !                       pling operator
+$27 <n> <text...>       '                       REM
+$28                     (                       left parenthesis
+$29                     )                       right parenthesis
+$2A                     *                       times
+$2B                     +                       plus
+$2C                     ,                       comma
+$2D                     -                       minus
+$2F                     /                       division
+$3A                     :                       colon (command separator)
+$3B                     ;                       semicolon
+$3C                     <                       less than
+$3D                     =                       equal
+$3E                     >                       greater than
+$3F                     ?                       PRINT
+$5B                     [                       left bracket
+$5D                     ]                       right bracket
+$5E                     ^                       power 
+$7B                     {                       left brace
+$7C <n> <name...>       |<name>                 (language extension)
+$7D                     }                       right brace
+
+
+
+
+
+
+
